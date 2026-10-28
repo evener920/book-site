@@ -1,0 +1,120 @@
+const fs = require('fs');
+const path = require('path');
+
+const root = __dirname;
+const contentDir = path.join(root, 'content');
+const srcDir = path.join(root, 'src');
+const distDir = path.join(root, 'dist');
+
+function parseFrontmatter(raw) {
+  const m = raw.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n?([\s\S]*)$/);
+  if (!m) return { meta: {}, body: raw };
+  const meta = {};
+  m[1].split(/\r?\n/).forEach(function (line) {
+    const i = line.indexOf(':');
+    if (i > 0) {
+      const k = line.slice(0, i).trim();
+      let v = line.slice(i + 1).trim();
+      v = v.replace(/^["']|["']$/g, '');
+      meta[k] = v;
+    }
+  });
+  return { meta: meta, body: m[2] };
+}
+
+function stripFrontmatter(raw) {
+  return raw.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '');
+}
+
+function copyDir(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const s = path.join(src, entry.name);
+    const d = path.join(dest, entry.name);
+    if (entry.isDirectory()) copyDir(s, d);
+    else fs.copyFileSync(s, d);
+  }
+}
+
+// 递归收集 md，支持 <卷名>/ 子目录
+function walk(dir, base, out) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const full = path.join(dir, entry.name);
+    const rel = base ? base + '/' + entry.name : entry.name;
+    if (entry.isDirectory()) walk(full, rel, out);
+    else if (entry.name.endsWith('.md')) out.push({ rel: rel, full: full });
+  }
+  return out;
+}
+
+function main() {
+  const files = walk(contentDir, '', []);
+  const articles = [];
+
+  for (const f of files) {
+    const raw = fs.readFileSync(f.full, 'utf8');
+    const parsed = parseFrontmatter(raw);
+    const segs = f.rel.split('/');
+    const dirVolume = segs.length > 1 ? segs[0] : '';
+    const title = parsed.meta.title || path.basename(f.rel, '.md');
+    const vol = parsed.meta.volume || dirVolume || '';
+    articles.push({
+      file: f.rel,
+      title: title,
+      order: parseInt(parsed.meta.order || '9999', 10),
+      date: parsed.meta.date || '',
+      volume: vol
+    });
+  }
+
+  // 全局顺序由 order 决定（新增内容取更大的 order 即追加到书末）
+  articles.sort(function (a, b) {
+    return a.order - b.order || a.file.localeCompare(b.file);
+  });
+
+  // 卷序：按卷在全书首次出现的顺序
+  const volumeSeq = [];
+  articles.forEach(function (a) {
+    if (a.volume && volumeSeq.indexOf(a.volume) === -1) volumeSeq.push(a.volume);
+  });
+
+  const manifest = {
+    generatedAt: new Date().toISOString(),
+    numbering: 'global', // 'global' 全站连续页码 | 'per-volume' 卷内页码
+    volumes: volumeSeq,
+    articles: articles
+  };
+
+  fs.mkdirSync(distDir, { recursive: true });
+  fs.writeFileSync(path.join(distDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
+  // 前端源码
+  copyDir(srcDir, distDir);
+
+  // content：保持子目录结构，剥离 frontmatter 便于前端直接渲染
+  // 先清空，避免文章重命名/调整卷目录后残留旧副本
+  const distContent = path.join(distDir, 'content');
+  if (fs.existsSync(distContent)) fs.rmSync(distContent, { recursive: true, force: true });
+  fs.mkdirSync(distContent, { recursive: true });
+  for (const f of files) {
+    const raw = fs.readFileSync(f.full, 'utf8');
+    const target = path.join(distContent, f.rel);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, stripFrontmatter(raw));
+  }
+
+  console.log('✓ 构建完成：' + articles.length + ' 篇 / ' + volumeSeq.length + ' 卷 → dist/manifest.json');
+  volumeSeq.forEach(function (v) {
+    console.log('  【' + v + '】');
+    articles.filter(function (a) { return a.volume === v; }).forEach(function (a) {
+      console.log('    ' + a.order + '  ' + a.title);
+    });
+  });
+  if (volumeSeq.length === 0) {
+    articles.forEach(function (a) { console.log('  ' + a.order + '  ' + a.title); });
+  }
+}
+
+main();

@@ -1,0 +1,13 @@
+{
+  "name": "book-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "持续生长的电子书网站：翻页阅读器 + 全站连续物理页码 + Markdown/git",
+  "scripts": {
+    "build": "node build.js",
+    "paginate": "node tools/paginate.js",
+    "pdf": "node tools/export-pdf.js",
+    "all": "node build.js && node tools/paginate.js && node tools/export-pdf.js",
+    "serve": "python3 -m http.server 8123 --directory dist"
+  }
+}

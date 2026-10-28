@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>道德经 · 网页书</title>
+  <link rel="stylesheet" href="./reader.css" />
+  <script src="./vendor/marked.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/marked@12/marked.min.js';document.head.appendChild(s);"></script>
+</head>
+<body>
+  <div id="app">
+    <div id="toolbar">
+      <button id="btn-prev" title="上一页（←）">‹ 上一页</button>
+      <span id="page-indicator">第 1 / 1 页</span>
+      <button id="btn-next" title="下一页（→）">下一页 ›</button>
+      <button id="btn-toc" title="目录">目录</button>
+      <button id="btn-print" title="打印 / 导出 PDF">打印</button>
+      <button id="btn-pdf" title="下载 PDF">下载 PDF</button>
+    </div>
+    <div id="stage">
+      <div id="page" class="page"></div>
+    </div>
+    <aside id="toc" class="toc">
+      <h2>目录</h2>
+      <ul id="toc-list"></ul>
+    </aside>
+    <div id="toc-mask" class="toc-mask hidden"></div>
+  </div>
+  <script src="./reader.js"></script>
+</body>
+</html>
