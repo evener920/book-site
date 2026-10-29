@@ -1,7 +1,8 @@
 (function () {
-  // 与 reader.css 中 .page 的内容区一致：700 - 左右padding(70*2)=560 宽；990 - 上下padding(64*2)=862 高
+  // 与 reader.css 中 .page / .page-print 的内容区一致：700 - 左右padding(70*2)=560 宽；
+  // 内容预算设为 840（< 版心 862），给 A4 零边距留余量：840 + 上下padding(64*2)=968 < A4 可装 994px，杜绝溢出劈页
   const PAGE_W = 560;      // 版心内容区宽（700 - 左右 padding 70×2）
-  const PAGE_H = 862;      // 版心内容区高（990 - 上下 padding 64×2）
+  const PAGE_H = 840;      // 版心内容区高（预算上限，实测含 margin 的精确总高 ≤ 此值）
   const PAGE_W_FULL = 700; // 书页整体宽（显示与缩放用）
   const PAGE_H_FULL = 990; // 书页整体高
 
@@ -178,12 +179,13 @@
     document.body.removeChild(measure);
   }
 
-  // 真实分页：把每篇文章拆成“块”（meta / 标题 / 段落 / 列表项……），逐块装入固定版心（高 862）。
-  // 整块能放下就整块；放不下且当前页有内容就翻页；单块本身超过一整页（长段落/长文）则按字符切分，
-  // 从而“一屏一页 == 一页纸”，页码即真实印刷页码，不再出现“第 5 页内容超出一张纸”。
+  // 真实分页：把每篇文章拆成“块”（meta / 标题 / 段落 / 列表项……），逐块装入固定版心。
+  // 关键：用“真实 .page 容器 + scrollHeight”测量含段落 margin 的精确总高，避免只量 offsetHeight（不含 margin）
+  // 导致预算少算几十~上百像素，长文章的多段落页在 A4 里溢出被劈成两页。
   function paginate(measure) {
     pages = [];
-    let cur = null;
+    let cur = null;       // { items, volume, volumePage, globalPage }
+    let curEl = null;     // 当前页的真实容器，用于精确量含 margin 的总高
     let h = 0;
     const volCounter = {};
     const blocks = [];
@@ -207,27 +209,34 @@
     function newPage() {
       cur = { items: [], volume: '', volumePage: 0, globalPage: pages.length + 1 };
       pages.push(cur);
+      // 与 .page / .page-print 相同的内容盒（宽 700，padding 64/70，box-border → 内容 560），
+      // 但不设 min-height（否则每页虚高 990），用离屏容器精确测量。
+      curEl = document.createElement('div');
+      curEl.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;width:700px;min-height:0;padding:64px 70px;box-sizing:border-box;';
+      measure.appendChild(curEl);
       h = 0;
     }
 
-    function measureHeight(node) {
-      measure.appendChild(node);
-      const bh = node.offsetHeight;
-      measure.removeChild(node);
-      return bh;
-    }
+    // 当前页“内容区”真实总高（含段落 margin 与折叠），减去上下 padding 128
+    function pageH() { return Math.max(0, curEl.scrollHeight - 128); }
 
-    // 把节点推入当前页：放不下则先翻页；首块带 data-title 供目录/页码定位
-    function pushToPage(node, bh, b) {
+    // 把节点放入当前页：先接入量高度，超预算则另起一页（保证每页真实高度 ≤ PAGE_H）
+    function pushToPage(node, b) {
       if (!cur) newPage();
-      else if (cur.items.length > 0 && h + bh > PAGE_H) newPage();
+      curEl.appendChild(node);
+      const newH = pageH();
+      if (cur.items.length > 0 && newH > PAGE_H) {
+        curEl.removeChild(node);
+        newPage();
+        curEl.appendChild(node);
+      }
       if (!cur.volume) cur.volume = b.volume;
       if (b.first) { node.setAttribute('data-title', b.title); b.first = false; }
       cur.items.push(node);
-      h += bh;
+      h = pageH();
     }
 
-    // 在 maxH 高度内最多容纳多少字符（二分），并尽量在句末标点处断开
+    // 在 maxH 内容预算内最多容纳多少字符（二分），并尽量在句末标点处断开
     function fitChars(el, text, maxH) {
       if (maxH <= 0) return 0;
       const probe = el.cloneNode(false);
@@ -252,8 +261,7 @@
     function pushLeaf(b, text) {
       const node = b.el.cloneNode(false);
       node.textContent = text;
-      const bh = measureHeight(node);
-      pushToPage(node, bh, b);
+      pushToPage(node, b);
     }
 
     // 超长块（> 一整页）：先填当前页剩余空间，再逐页铺满
@@ -288,10 +296,9 @@
       if (needNew) newPage();
 
       const el = b.el;
-      const bh = el.offsetHeight; // 块已在 measure(.page) 内，可直接测量
+      const bh = el.offsetHeight; // 块已在 measure(.page) 内，可直接量其 intrinsic 高度
       if (bh <= PAGE_H) {
-        if (cur && cur.items.length > 0 && h + bh > PAGE_H) newPage();
-        pushToPage(el.cloneNode(true), bh, b);
+        pushToPage(el.cloneNode(true), b);
       } else {
         addLeaf(b, el.textContent); // 单块超一页：按字符切分
       }
