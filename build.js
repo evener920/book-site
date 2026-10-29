@@ -63,7 +63,7 @@ function main() {
     articles.push({
       file: f.rel,
       title: title,
-      order: parseInt(parsed.meta.order || '9999', 10),
+      order: parseFloat(parsed.meta.order || '9999'), // 支持小数（如 2.5 插在第 2、3 章之间），无需重排其它章
       date: parsed.meta.date || '',
       volume: vol
     });

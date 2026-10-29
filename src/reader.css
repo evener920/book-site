@@ -44,10 +44,18 @@ body{
   width:700px;max-width:100%;min-height:0;height:auto;background:var(--paper);
   background-image:linear-gradient(180deg,#fefcf8,#faf6ec);
   box-shadow:0 10px 38px rgba(70,58,36,.16),0 1px 4px rgba(0,0,0,.06);
-  border:1px solid var(--paper-edge);
-  padding:64px 70px;position:relative;margin:auto;
+  border:none;                       /* 去掉硬质矩形边框，改成活页纸观感 */
+  padding:72px 70px 64px;           /* 顶部留白给活页孔 */
+  position:relative;margin:auto;
   /* 屏幕书页高度随内容自然伸展：正文紧贴顶部、页码贴最底部，中间不留大段空白
      （“文字靠近页脚”）。打印/PDF 仍走 .page-print 的固定整页，短篇在 PDF 留出底部空白是标准页式。 */
+}
+/* 活页孔：顶部一排浅色圆孔，暗示每页是可抽换的活页、可在中间插入新页 */
+.page::before{
+  content:"";position:absolute;top:22px;left:46px;right:46px;height:12px;
+  background-image:radial-gradient(circle, #e4d9c1 0 4px, transparent 4px);
+  background-size:42px 12px;background-repeat:repeat-x;background-position:center;
+  opacity:.85;
 }
 .page section{display:flow-root;}
 /* 页脚（页码）：贴页面最底部，分隔线贯通整页宽（与 Word 页脚一致，不再过窄） */

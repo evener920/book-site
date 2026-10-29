@@ -573,4 +573,10 @@
   window.__buildPrintBook = buildPrintBook;
 
   load();
+
+  // 字体/样式就绪前先隐藏内容，避免刷新瞬间中文未就绪被渲染成方块（tofu）一闪而过；
+  // 待 document.fonts.ready（系统中文就绪）后再淡入显示
+  function markReady() { var a = document.getElementById('app'); if (a) a.classList.add('ready'); }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(markReady);
+  setTimeout(markReady, 1500); // 兜底：字体 API 异常时也确保内容可显示
 })();
