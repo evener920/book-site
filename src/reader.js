@@ -133,10 +133,10 @@
   async function buildFromMeasure(manifest) {
     const measure = document.createElement('div');
     measure.id = 'measure';
-    measure.style.cssText =
-      'position:absolute;left:-99999px;top:0;width:' + PAGE_W + 'px;' +
-      'padding:64px 70px;font-family:var(--serif);font-size:17px;line-height:2.0;' +
-      'color:#2f3b34;background:#f3ecdb;box-sizing:border-box;';
+    // 复用 .page 版式（宽 700 / padding 64×70 / 字体字号与线上书页完全一致），
+    // 保证“构建时测量的分页” == “屏幕上显示的分页” == “打印 PDF 的每一页”，三处页码统一。
+    measure.className = 'page';
+    measure.style.cssText = 'position:absolute;left:-99999px;top:0;';
     document.body.appendChild(measure);
 
     for (let i = 0; i < manifest.articles.length; i++) {
@@ -156,35 +156,123 @@
     document.body.removeChild(measure);
   }
 
-  // 块级感知分页：以 section 为整体不截断；新卷强制另起一页（卷边界 = 稳定边界）
+  // 真实分页：把每篇文章拆成“块”（meta / 标题 / 段落 / 列表项……），逐块装入固定版心（高 862）。
+  // 整块能放下就整块；放不下且当前页有内容就翻页；单块本身超过一整页（长段落/长文）则按字符切分，
+  // 从而“一屏一页 == 一页纸”，页码即真实印刷页码，不再出现“第 5 页内容超出一张纸”。
   function paginate(measure) {
     pages = [];
     let cur = null;
     let h = 0;
     const volCounter = {};
-    const blocks = Array.prototype.slice.call(measure.children);
+    const blocks = [];
+
+    // 展平：section -> 其子元素；遇到 ul/ol 再展平成各个 li（列表项独立成块，可逐条分页）
+    Array.prototype.slice.call(measure.children).forEach(function (section) {
+      if (!section.getAttribute) return;
+      const vol = section.getAttribute('data-volume') || '';
+      const title = section.getAttribute('data-title') || '';
+      Array.prototype.slice.call(section.children).forEach(function (kid, ki) {
+        if (kid.tagName === 'UL' || kid.tagName === 'OL') {
+          Array.prototype.slice.call(kid.children).forEach(function (li) {
+            blocks.push({ el: li, volume: vol, title: title, first: false });
+          });
+        } else {
+          blocks.push({ el: kid, volume: vol, title: title, first: ki === 0 });
+        }
+      });
+    });
 
     function newPage() {
       cur = { items: [], volume: '', volumePage: 0, globalPage: pages.length + 1 };
       pages.push(cur);
       h = 0;
     }
-    newPage();
+
+    function measureHeight(node) {
+      measure.appendChild(node);
+      const bh = node.offsetHeight;
+      measure.removeChild(node);
+      return bh;
+    }
+
+    // 把节点推入当前页：放不下则先翻页；首块带 data-title 供目录/页码定位
+    function pushToPage(node, bh, b) {
+      if (!cur) newPage();
+      else if (cur.items.length > 0 && h + bh > PAGE_H) newPage();
+      if (!cur.volume) cur.volume = b.volume;
+      if (b.first) { node.setAttribute('data-title', b.title); b.first = false; }
+      cur.items.push(node);
+      h += bh;
+    }
+
+    // 在 maxH 高度内最多容纳多少字符（二分），并尽量在句末标点处断开
+    function fitChars(el, text, maxH) {
+      if (maxH <= 0) return 0;
+      const probe = el.cloneNode(false);
+      measure.appendChild(probe);
+      if (probe.offsetHeight <= maxH) { measure.removeChild(probe); return text.length; }
+      let lo = 1, hi = text.length;
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        probe.textContent = text.slice(0, mid);
+        if (probe.offsetHeight <= maxH) lo = mid; else hi = mid - 1;
+      }
+      measure.removeChild(probe);
+      let cut = lo;
+      const back = Math.min(cut, 24);
+      for (let k = cut; k > cut - back && k > 0; k--) {
+        const ch = text.charAt(k - 1);
+        if (ch === '。' || ch === '！' || ch === '？' || ch === '；' || ch === '，' || ch === '、' || ch === '\n') { cut = k; break; }
+      }
+      return Math.max(1, cut);
+    }
+
+    function pushLeaf(b, text) {
+      const node = b.el.cloneNode(false);
+      node.textContent = text;
+      const bh = measureHeight(node);
+      pushToPage(node, bh, b);
+    }
+
+    // 超长块（> 一整页）：先填当前页剩余空间，再逐页铺满
+    function addLeaf(b, text) {
+      if (!text) return;
+      if (cur && cur.items.length > 0) {
+        const avail = PAGE_H - h;
+        if (avail > 0) {
+          const n = fitChars(b.el, text, avail);
+          if (n >= text.length) { pushLeaf(b, text); return; }
+          pushLeaf(b, text.slice(0, n));
+          text = text.slice(n);
+        }
+      }
+      while (text.length) {
+        if (!cur) newPage();
+        else if (cur.items.length > 0) newPage();
+        const n = fitChars(b.el, text, PAGE_H);
+        pushLeaf(b, text.slice(0, n));
+        text = text.slice(n);
+      }
+    }
 
     for (let i = 0; i < blocks.length; i++) {
       const b = blocks[i];
-      const bh = b.offsetHeight;
-      const vol = b.getAttribute('data-volume') || '';
-      const title = b.getAttribute('data-title') || '';
-
-      // 换页条件：超出版心，或遇到新卷（卷边界强制分页）
-      const needNew = (h + bh > PAGE_H && h > 0) || (cur.items.length > 0 && cur.volume !== vol);
+      // 决定是否需要另起一页：卷边界，或新文章起始（仿线装书，每篇自起一页）
+      let needNew = false;
+      if (cur && cur.items.length > 0) {
+        if (cur.volume !== b.volume) needNew = true;
+        else if (b.first) needNew = true;
+      }
       if (needNew) newPage();
 
-      if (!cur.volume) cur.volume = vol;
-      if (title && articleStart[title] == null) articleStart[title] = pages.length - 1;
-      cur.items.push(b.cloneNode(true));
-      h += bh;
+      const el = b.el;
+      const bh = el.offsetHeight; // 块已在 measure(.page) 内，可直接测量
+      if (bh <= PAGE_H) {
+        if (cur && cur.items.length > 0 && h + bh > PAGE_H) newPage();
+        pushToPage(el.cloneNode(true), bh, b);
+      } else {
+        addLeaf(b, el.textContent); // 单块超一页：按字符切分
+      }
     }
 
     // 回填卷内页码
