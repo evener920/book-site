@@ -144,6 +144,10 @@ body{
 }
 .ann-colors button{flex:1;min-width:60px;font-size:13px;}
 @media print{
+  /* 关键：强制 A4 + 零边距，否则浏览器按默认纸张（常为 Letter）或默认页边距排版，
+     书页内容约 990px 高在 Letter(≈1056px)−默认边距(≈76px)=≈980px 下会溢出，
+     导致“第 5 页（内容最满的一页）被劈成两页”。A4(≈1122px)−0 边距，990px 稳稳一页。 */
+  @page{ size: A4; margin: 0; }
   body{background:#fff;}
   #app{display:none!important;}
   #print-book{display:block;}
