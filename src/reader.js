@@ -374,7 +374,7 @@
     }
 
     const cnt = document.getElementById('toc-count');
-    if (cnt) cnt.textContent = '共 ' + articles.length + ' 篇';
+    if (cnt) cnt.textContent = '共 ' + articles.length + ' 篇 · ' + pages.length + ' 页';
     syncTocCurrent();
   }
 
