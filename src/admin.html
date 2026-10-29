@@ -76,9 +76,9 @@
             <button type="button" data-cmd="uline" title="划线（文字下方加直线下划线）">▁ 划线</button>
             <button type="button" data-cmd="wave" title="波浪线（文字下方加波浪下划线）">〰 波浪</button>
             <span class="anno-colors" id="anno-colors">
-              <button type="button" class="swatch on" data-color="#fbbf24" title="黄色" style="background:#fbbf24"></button>
-              <button type="button" class="swatch" data-color="#60a5fa" title="蓝色" style="background:#60a5fa"></button>
-              <button type="button" class="swatch" data-color="#f87171" title="红色" style="background:#f87171"></button>
+              <button type="button" class="swatch on" data-color="#f7ecc9" title="米黄（高亮默认色）" style="background:#f7ecc9"></button>
+              <button type="button" class="swatch" data-color="#d9ecd2" title="浅绿" style="background:#d9ecd2"></button>
+              <button type="button" class="swatch" data-color="#f8dce6" title="浅粉" style="background:#f8dce6"></button>
             </span>
             <span class="sep"></span>
             <button type="button" data-cmd="link" title="插入链接">🔗 链接</button>
@@ -241,26 +241,33 @@
     function initRte() {
       const ed = $('rte');
       if (!ed) return;
-      let annoColor = '#fbbf24'; // 当前色块颜色
+      let annoColor = '#f7ecc9'; // 当前色块颜色（米黄，柔和阅读批注风）
       let curKind = 'wave';       // 最近一次批注模式：hl / uline / wave
+      // 柔和阅读批注配色：高亮用浅色底，划线/波浪用同色系更深一档的线色（白底上能看清，但不刺眼）
+      const ANNO = {
+        '#f7ecc9': { bg: '#f7ecc9', line: '#cd9b3e' }, // 米黄
+        '#d9ecd2': { bg: '#d9ecd2', line: '#4f9e6b' }, // 浅绿
+        '#f8dce6': { bg: '#f8dce6', line: '#d76b94' }  // 浅粉
+      };
       // 把选中文字包成批注 span：高亮(背景) / 划线(直线) / 波浪(波浪线)
       function wrapAnno(kind, color) {
         const sel = window.getSelection();
         if (!sel || !sel.rangeCount || sel.isCollapsed) return false;
         const range = sel.getRangeAt(0);
+        const a = ANNO[color] || { bg: color, line: color };
         const span = document.createElement('span');
         if (kind === 'hl') {
           span.className = 'hl';
-          span.style.backgroundColor = color;
+          span.style.backgroundColor = a.bg;
         } else if (kind === 'uline') {
           span.className = 'uline';
           span.style.textDecorationLine = 'underline';
-          span.style.textDecorationColor = color;
+          span.style.textDecorationColor = a.line;
         } else { // wave
           span.className = 'wave';
           span.style.textDecorationLine = 'underline';
           span.style.textDecorationStyle = 'wavy';
-          span.style.textDecorationColor = color;
+          span.style.textDecorationColor = a.line;
         }
         try { range.surroundContents(span); }
         catch (e) {

@@ -62,9 +62,9 @@ body{
 .page .meta{text-align:center;color:var(--ink);font-size:24px;font-weight:600;margin:0 0 22px;letter-spacing:2px;}
 .page blockquote{border-left:3px solid var(--rule);margin:0 0 14px;padding:4px 16px;color:var(--ink-soft);background:rgba(205,191,160,.12);}
 /* 批注三类：高亮(背景) / 划线(直线) / 波浪(波浪线)。内联 style 已带完整样式，这里仅做兜底与微调 */
-.page span.hl{border-radius:2px;padding:0 1px;}
-.page span.uline{text-decoration-line:underline;}
-.page span[style*="wavy"],.page span.wave{text-decoration-line:underline;text-decoration-style:wavy;}
+.page span.hl{border-radius:2px;padding:0 1px;-webkit-box-decoration-break:clone;box-decoration-break:clone;}
+.page span.uline{text-decoration-line:underline;text-decoration-skip-ink:none;}
+.page span[style*="wavy"],.page span.wave{text-decoration-line:underline;text-decoration-style:wavy;text-decoration-skip-ink:none;}
 .page hr{border:none;border-top:1px solid var(--rule);margin:20px 0;}
 .page code{font-family:"SFMono-Regular",Consolas,monospace;background:rgba(0,0,0,.05);padding:1px 4px;border-radius:3px;font-size:14px;}
 .page ul,.page ol{font-size:17px;line-height:2.0;padding-left:2.4em;margin:0 0 14px;}
