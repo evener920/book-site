@@ -540,15 +540,6 @@
     const adminBtn = document.getElementById('btn-admin');
     // Pages 会把 /admin.html 308 跳到 /admin，直接指过去省一次跳转
     if (adminBtn) adminBtn.onclick = function () { window.location.href = v('./admin'); };
-    // 插入新页面：在中间插书页的设计入口
-    const insertBtn = document.getElementById('btn-insert');
-    if (insertBtn) insertBtn.onclick = openInsert;
-    const insClose = document.getElementById('ins-close');
-    if (insClose) insClose.onclick = closeInsert;
-    const insGen = document.getElementById('ins-gen');
-    if (insGen) insGen.onclick = genInsert;
-    const insModal = document.getElementById('insert-modal');
-    if (insModal) insModal.addEventListener('click', function (e) { if (e.target === insModal) closeInsert(); });
     document.getElementById('toc-mask').onclick = closeToc;
     document.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowLeft') showPage(current - 1);
@@ -582,78 +573,6 @@
   window.__buildPrintBook = buildPrintBook;
 
   load();
-
-  // ---------------- 插入新页面 ----------------
-  let articleList = [];
-  function openInsert() {
-    const modal = document.getElementById('insert-modal');
-    if (!modal) return;
-    const sel = document.getElementById('ins-after');
-    const msg = document.getElementById('ins-msg');
-    if (msg) msg.textContent = '';
-    if (sel) {
-      sel.innerHTML = '';
-      fetch(v('./manifest.json') + '?t=' + Date.now())
-        .then(function (r) { return r.json(); })
-        .then(function (m) {
-          articleList = (m && m.articles) || [];
-          articleList.slice().sort(function (a, b) { return a.order - b.order; }).forEach(function (a) {
-            const o = document.createElement('option');
-            o.value = String(a.order);
-            o.textContent = a.title + '（order ' + a.order + '）';
-            sel.appendChild(o);
-          });
-          const end = document.createElement('option');
-          end.value = '__END__';
-          end.textContent = '（书末）';
-          sel.appendChild(end);
-        })
-        .catch(function () { /* 忽略 */ });
-    }
-    modal.classList.remove('hidden');
-  }
-  function closeInsert() {
-    const modal = document.getElementById('insert-modal');
-    if (modal) modal.classList.add('hidden');
-  }
-  function genInsert() {
-    const title = (document.getElementById('ins-title').value || '').trim();
-    const volume = (document.getElementById('ins-volume').value || '').trim();
-    const body = document.getElementById('ins-body').value || '';
-    const after = document.getElementById('ins-after').value;
-    const msg = document.getElementById('ins-msg');
-    if (!title) { if (msg) msg.textContent = '请填写标题'; return; }
-    const sorted = articleList.map(function (a) { return a.order; }).slice().sort(function (a, b) { return a - b; });
-    let newOrder;
-    if (after === '__END__' || sorted.length === 0) {
-      newOrder = (sorted.length ? sorted[sorted.length - 1] : 0) + 1;
-    } else {
-      const o = parseFloat(after);
-      let next = null;
-      for (let i = 0; i < sorted.length; i++) { if (sorted[i] > o + 1e-9) { next = sorted[i]; break; } }
-      newOrder = next == null ? o + 1 : (o + next) / 2;
-      newOrder = Math.round(newOrder * 100) / 100;
-    }
-    // 卷：用户填了用用户的；否则取插入位置的卷
-    let vol = volume;
-    if (!vol && after !== '__END__') {
-      const hit = articleList.find(function (a) { return String(a.order) === String(after); });
-      if (hit) vol = hit.volume || '';
-    }
-    const slug = title.replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || ('page-' + Date.now());
-    const fm = ['---', 'order: ' + newOrder, 'title: ' + title, 'volume: ' + vol, '---', '', body].join('\n');
-    const fname = slug + '.md';
-    const blob = new Blob([fm], { type: 'text/markdown;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = fname;
-    a.click();
-    if (msg) {
-      msg.textContent = '已生成 ' + fname + '（order: ' + newOrder + '，volume: ' + (vol || '（空）') +
-        '）。把它放进 content/ 下对应卷的文件夹，git push 即上线，新页会自动落在“' +
-        (after === '__END__' ? '书末' : '所选页面之后') + '”。';
-    }
-  }
 
   // 字体/样式就绪前先隐藏内容，避免刷新瞬间中文未就绪被渲染成方块（tofu）一闪而过；
   // 待 document.fonts.ready（系统中文就绪）后再淡入显示

@@ -22,6 +22,11 @@
       <a href="./manage.html">已有内容</a>
     </nav>
 
+    <div class="card hidden" id="list-card">
+      <h2>所有文章（点「在此后插入」即可往中间加页）</h2>
+      <ul class="list" id="art-list"></ul>
+    </div>
+
     <div class="card" id="login-card">
       <div class="field">
         <label>用户名</label>
@@ -93,8 +98,9 @@
           <pre id="md-src"></pre>
         </details>
       </div>
-      <button class="btn" id="btn-publish">发布到书末</button>
+      <button class="btn" id="btn-publish">发布到书</button>
       <button class="btn ghost" id="btn-logout">退出</button>
+      <div class="status" id="insert-hint"></div>
       <div class="status" id="pub-status"></div>
     </div>
   </div>
@@ -149,6 +155,7 @@
       localStorage.removeItem('book_token');
       localStorage.removeItem('book_user');
       $('form-card').classList.add('hidden');
+      $('list-card').classList.add('hidden');
       $('login-card').classList.remove('hidden');
       $('who').textContent = '未登录';
     }
@@ -156,17 +163,52 @@
     async function afterLogin() {
       $('login-card').classList.add('hidden');
       $('form-card').classList.remove('hidden');
+      $('list-card').classList.remove('hidden');
       $('who').textContent = '已登录 ' + user;
       $('date').value = new Date().toISOString().slice(0, 10);
       setStatus('login-status', '');
-      // 拉卷名候选
+      // 拉卷名候选 + 文章列表（用于「在中间插入页」）
       const d = await call('GET', '/api/articles');
       if (!d.error && (d.articles || []).length) {
         const vols = [];
         d.articles.forEach(function (a) { if (a.volume && vols.indexOf(a.volume) === -1) vols.push(a.volume); });
         $('vol-list').innerHTML = vols.map(function (v) { return '<option value="' + esc(v) + '">'; }).join('');
         $('order').placeholder = '自动（建议 ' + d.suggestedOrder + '）';
+        renderArticleList(d.articles);
       }
+    }
+
+    // 渲染全部文章列表；每篇带「在此后插入」按钮，点击自动算出落在中间的小数 order 并预填表单
+    let allArticles = [];
+    function renderArticleList(arts) {
+      allArticles = (arts || []).slice().sort(function (a, b) { return a.order - b.order; });
+      const ul = $('art-list');
+      ul.innerHTML = '';
+      allArticles.forEach(function (a, i) {
+        const li = document.createElement('li');
+        const vol = a.volume ? '<span class="vol">' + esc(a.volume) + '</span>' : '';
+        li.innerHTML =
+          '<span class="ord">' + a.order + '</span>' +
+          '<span class="ttl">' + esc(a.title) + '</span>' +
+          vol +
+          '<span class="acts"><button class="mini" type="button" data-i="' + i + '">＋ 在此后插入</button></span>';
+        ul.appendChild(li);
+      });
+      Array.prototype.forEach.call(ul.querySelectorAll('.mini'), function (btn) {
+        btn.onclick = function () {
+          const i = Number(btn.getAttribute('data-i'));
+          const cur = allArticles[i];
+          const next = allArticles[i + 1];
+          let newOrder;
+          if (!next) newOrder = cur.order + 1;
+          else newOrder = Math.round((cur.order + next.order) / 2 * 1000) / 1000;
+          $('order').value = newOrder;
+          if (cur.volume) $('volume').value = cur.volume;
+          setStatus('insert-hint', '🔻 准备插入到《' + cur.title + '》之后（order=' + newOrder + '）。填好标题与正文后点「发布到书」即落实。');
+          $('form-card').scrollIntoView({ behavior: 'smooth' });
+          $('title').focus();
+        };
+      });
     }
 
     /* ── 富文本编辑器：HTML → Markdown 转换（存进后端，与现有 pipeline 兼容） ── */
@@ -352,6 +394,10 @@
         $('rte').innerHTML = '';
         $('md-src').textContent = '';
         $('order').value = '';
+        setStatus('insert-hint', '');
+        // 重新拉取文章列表，反映刚插入的新页与最新 order
+        const d2 = await call('GET', '/api/articles');
+        if (!d2.error) renderArticleList(d2.articles);
       } else {
         setStatus('pub-status', '✗ ' + (d.error || '发布失败') + (d.detail ? '<br>' + JSON.stringify(d.detail) : ''));
       }
