@@ -16,6 +16,32 @@
   const pageEl = document.getElementById('page');
   const indicator = document.getElementById('page-indicator');
   const tocList = document.getElementById('toc-list');
+  const zoomIndicator = document.getElementById('zoom-indicator');
+
+  // 仅书页缩放：zoom 作用在 #page 上，左侧目录与顶部工具栏是独立兄弟元素，不受影响。
+  // 用 CSS zoom（布局级缩放、矢量重排）而非 transform，避免文字发虚；不与浏览器 ⌘+ 叠加糊字。
+  const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+  let pageZoom = (function () {
+    const z = parseFloat(localStorage.getItem('book-zoom'));
+    return isFinite(z) ? z : 1;
+  })();
+  function applyZoom() {
+    if (pageEl) pageEl.style.zoom = String(pageZoom);
+    if (zoomIndicator) zoomIndicator.textContent = Math.round(pageZoom * 100) + '%';
+    localStorage.setItem('book-zoom', String(pageZoom));
+  }
+  function zoomBy(dir) {
+    let i = ZOOM_STEPS.indexOf(pageZoom);
+    if (i < 0) {
+      // 落在非预设档位时，就近吸附到最近的档
+      let best = 0, bestD = Infinity;
+      ZOOM_STEPS.forEach(function (s, k) { const d = Math.abs(s - pageZoom); if (d < bestD) { bestD = d; best = k; } });
+      i = best;
+    }
+    i = Math.max(0, Math.min(ZOOM_STEPS.length - 1, i + dir));
+    pageZoom = ZOOM_STEPS[i];
+    applyZoom();
+  }
 
   // 不再对书页做 CSS 缩放：缩放会抵消浏览器自身的放大，且两次缩放叠加会让文字发虚。
   // 现在版心固定 700px 宽、高度随内容自然伸展，装不下就滚动 —— 放大即真放大，始终清晰。
@@ -79,6 +105,7 @@
     buildToc(manifest);
     current = parseInt(localStorage.getItem('book-page') || '0', 10) || 0;
     showPage(current);
+    applyZoom(); // 首屏按记忆恢复书页缩放（目录/工具栏不变）
     bindEvents();
 
     // 就绪钩子（自动化 / 调试）
@@ -314,6 +341,10 @@
   function bindEvents() {
     document.getElementById('btn-prev').onclick = function () { showPage(current - 1); };
     document.getElementById('btn-next').onclick = function () { showPage(current + 1); };
+    const zoomOut = document.getElementById('btn-zoom-out');
+    const zoomIn = document.getElementById('btn-zoom-in');
+    if (zoomOut) zoomOut.onclick = function () { zoomBy(-1); };
+    if (zoomIn) zoomIn.onclick = function () { zoomBy(1); };
     document.getElementById('btn-toc').onclick = toggleToc;
     document.getElementById('btn-print').onclick = function () { buildPrintBook(); window.print(); };
     const pdfBtn = document.getElementById('btn-pdf');
