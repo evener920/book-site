@@ -235,7 +235,7 @@
       const a = manifest.articles[i];
       const raw = await fetch(v(encodeURI('./content/' + a.file))).then(function (r) { return r.text(); });
       const outlined = outlineMarkdown(raw);
-      const html = (window.marked ? marked.parse(outlined) : '<pre>' + outlined + '</pre>');
+      const html = (window.marked ? marked.parse(outlined, { html: true }) : '<pre>' + outlined + '</pre>');
       const section = document.createElement('section');
       section.setAttribute('data-title', a.title);
       section.setAttribute('data-volume', a.volume || '');

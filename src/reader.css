@@ -61,6 +61,7 @@ body{
 /* 文章（章）标题：全篇最大，居中，作为“书页眉题” */
 .page .meta{text-align:center;color:var(--ink);font-size:24px;font-weight:600;margin:0 0 22px;letter-spacing:2px;}
 .page blockquote{border-left:3px solid var(--rule);margin:0 0 14px;padding:4px 16px;color:var(--ink-soft);background:rgba(205,191,160,.12);}
+.page span[style*="background"]{border-radius:2px;padding:0 1px;}
 .page hr{border:none;border-top:1px solid var(--rule);margin:20px 0;}
 .page code{font-family:"SFMono-Regular",Consolas,monospace;background:rgba(0,0,0,.05);padding:1px 4px;border-radius:3px;font-size:14px;}
 .page ul,.page ol{font-size:17px;line-height:2.0;padding-left:2.4em;margin:0 0 14px;}
