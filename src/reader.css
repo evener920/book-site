@@ -29,6 +29,13 @@ body{
   padding:6px 12px;border-radius:4px;cursor:pointer;
 }
 #toolbar button:hover{background:var(--paper-edge);}
+/* 新版本提示条：线上重新部署后，仍开着旧标签页的读者会在顶部看到提示，点击刷新即可 */
+.update-bar{
+  flex:0 0 auto;text-align:center;padding:8px 14px;font-size:14px;
+  background:var(--cinnabar);color:#fdfbf5;letter-spacing:.5px;
+}
+.update-bar a{color:#fff;text-decoration:underline;font-weight:bold;}
+.update-bar.hidden{display:none;}
 #page-indicator{color:var(--cinnabar);min-width:96px;text-align:center;letter-spacing:1px;}
 /* 仅书页缩放（CSS zoom）时：margin:auto 让书页“能装下就居中、装不下就贴边可滚”
    避免 flex 居中把放大后的左/上边缘顶出可滚动区导致被裁 */

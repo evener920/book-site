@@ -43,6 +43,27 @@
     applyZoom();
   }
 
+  // 检测线上是否已有新版本：比较 version.json.version 与当前 BOOK_VERSION。
+  // 书会持续生长（后台发文 → 重新部署），读者若一直开着旧标签页，会读到缓存旧版，
+  // 因此周期性检查，发现版本落后就在顶部弹出提示条，点击即刷新。
+  function checkUpdate() {
+    function probe() {
+      fetch(v('./version.json') + '&t=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (d && d.version && d.version !== window.BOOK_VERSION) {
+            var bar = document.getElementById('update-bar');
+            if (bar) bar.classList.remove('hidden');
+            var rl = document.getElementById('update-reload');
+            if (rl) rl.onclick = function (e) { e.preventDefault(); location.reload(true); };
+          }
+        })
+        .catch(function () { /* 离线或网络抖动时忽略 */ });
+    }
+    probe();
+    setInterval(probe, 90 * 1000); // 每 90 秒复查一次
+  }
+
   // 不再对书页做 CSS 缩放：缩放会抵消浏览器自身的放大，且两次缩放叠加会让文字发虚。
   // 现在版心固定 700px 宽、高度随内容自然伸展，装不下就滚动 —— 放大即真放大，始终清晰。
   function fitPage() { /* 保留调用点，当前无需缩放 */ }
@@ -107,6 +128,7 @@
     showPage(current);
     applyZoom(); // 首屏按记忆恢复书页缩放（目录/工具栏不变）
     bindEvents();
+    checkUpdate(); // 检测线上是否已有新版本，提示读者刷新（避免读到缓存旧版）
 
     // 就绪钩子（自动化 / 调试）
     window.__bookReady = true;

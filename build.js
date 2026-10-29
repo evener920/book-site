@@ -109,6 +109,12 @@ function main() {
   });
   console.log('✓ API 地址注入：' + (apiBase || '（未配置，批注与后台不可用）'));
 
+  // 版本清单：供前端检测“线上已有新版本”，提示读者刷新（避免部署后读到的仍是缓存旧版）
+  fs.writeFileSync(
+    path.join(distDir, 'version.json'),
+    JSON.stringify({ version: version, generatedAt: manifest.generatedAt })
+  );
+
   // content：保持子目录结构，剥离 frontmatter 便于前端直接渲染
   // 先清空，避免文章重命名/调整卷目录后残留旧副本
   const distContent = path.join(distDir, 'content');
