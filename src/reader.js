@@ -17,30 +17,9 @@
   const indicator = document.getElementById('page-indicator');
   const tocList = document.getElementById('toc-list');
 
-  // 书页自适应视口：版心设计尺寸固定 700×990（分页基准不变），按可用空间整体缩放，
-  // 避免窗口装不下时上下被裁切（缩放只影响显示，不影响分页结果）
-  function fitPage() {
-    const stage = document.getElementById('stage');
-    if (!stage || !pageEl) return;
-    const style = window.getComputedStyle(stage);
-    const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-    const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
-    const availW = stage.clientWidth - padX;
-    const availH = stage.clientHeight - padY;
-    if (availW <= 0 || availH <= 0) return;
-    const s = Math.min(1, availW / PAGE_W_FULL, availH / PAGE_H_FULL);
-    const scale = Math.max(0.45, s); // 太小就让它滚动，不再缩小
-
-    // 优先用 zoom（会重排，居中自然）；不支持的浏览器退化为 transform + 负 margin 抵消占位
-    pageEl.style.zoom = scale;
-    const h = pageEl.getBoundingClientRect().height;
-    if (Math.abs(h - PAGE_H_FULL * scale) > 4) {
-      pageEl.style.zoom = '';
-      pageEl.style.transformOrigin = 'center center';
-      pageEl.style.transform = 'scale(' + scale + ')';
-      pageEl.style.margin = (PAGE_H_FULL * (scale - 1) / 2) + 'px ' + (PAGE_W_FULL * (scale - 1) / 2) + 'px';
-    }
-  }
+  // 不再对书页做 CSS 缩放：缩放会抵消浏览器自身的放大，且两次缩放叠加会让文字发虚。
+  // 现在版心固定 700px 宽、高度随内容自然伸展，装不下就滚动 —— 放大即真放大，始终清晰。
+  function fitPage() { /* 保留调用点，当前无需缩放 */ }
 
   // 给静态资源加版本戳，避免浏览器/CDN 缓存旧版（新增按钮、改样式后立刻生效）
   function v(url) {
