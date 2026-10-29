@@ -96,18 +96,37 @@ body{
 .hidden{display:none!important;}
 #print-book{display:none;}
 
-/* ===== 批注层 ===== */
-.ann{cursor:pointer;border-radius:2px;}
-.ann-highlight{background:transparent;padding:1px 0;}
+/* ===== 批注层（正文划线与波浪线、高亮，柔和阅读风：米黄/浅绿/浅粉） ===== */
+/* box-decoration-break:clone 让跨换行的批注底色/线连续，不出现硬方框 */
+.ann{cursor:pointer;border-radius:2px;-webkit-box-decoration-break:clone;box-decoration-break:clone;}
+/* 高亮：柔和半透明底色，不画边框，避免看起来像“矩形框” */
+.ann-highlight{background:transparent;}
+.ann-highlight.ann-mi{background:rgba(247,236,201,.55);}
+.ann-highlight.ann-lv{background:rgba(217,236,210,.55);}
+.ann-highlight.ann-fen{background:rgba(248,220,230,.55);}
+/* 旧账号遗留配色（D1 历史数据） */
 .ann-highlight.ann-gold{background:rgba(214,164,60,.32);}
-.ann-highlight.ann-cinnabar{background:rgba(156,74,54,.26);}
-.ann-highlight.ann-moss{background:rgba(94,122,96,.28);}
-.ann-highlight.ann-indigo{background:rgba(70,94,128,.26);}
-.ann-underline{border-bottom:2px solid #9c4a36;}
+.ann-highlight.ann-cinnabar{background:rgba(156,74,54,.22);}
+.ann-highlight.ann-moss{background:rgba(94,122,96,.26);}
+.ann-highlight.ann-indigo{background:rgba(70,94,128,.22);}
+/* 划线（直线） */
+.ann-underline{border-bottom:2px solid #cd9b3e;}
+.ann-underline.ann-mi{border-bottom-color:#cd9b3e;}
+.ann-underline.ann-lv{border-bottom-color:#4f9e6b;}
+.ann-underline.ann-fen{border-bottom-color:#d76b94;}
 .ann-underline.ann-gold{border-bottom-color:#d6a43c;}
 .ann-underline.ann-cinnabar{border-bottom-color:#9c4a36;}
 .ann-underline.ann-moss{border-bottom-color:#5e7a60;}
 .ann-underline.ann-indigo{border-bottom-color:#465e80;}
+/* 波浪线（用 text-decoration 波浪样式，不用边框，才够柔） */
+.ann-wave{text-decoration-line:underline;text-decoration-style:wavy;text-decoration-skip-ink:none;padding-bottom:1px;}
+.ann-wave.ann-mi{text-decoration-color:#cd9b3e;}
+.ann-wave.ann-lv{text-decoration-color:#4f9e6b;}
+.ann-wave.ann-fen{text-decoration-color:#d76b94;}
+.ann-wave.ann-gold{text-decoration-color:#d6a43c;}
+.ann-wave.ann-cinnabar{text-decoration-color:#9c4a36;}
+.ann-wave.ann-moss{text-decoration-color:#5e7a60;}
+.ann-wave.ann-indigo{text-decoration-color:#465e80;}
 
 /* 选中后的悬浮工具条 */
 .ann-toolbar{
@@ -121,6 +140,12 @@ body{
   padding:5px 12px;border-radius:4px;cursor:pointer;
 }
 .ann-toolbar button:hover{background:var(--paper-edge);}
+/* 工具条 / 备注弹层里的色块（米黄/浅绿/浅粉） */
+.ann-toolbar .ann-sep,.ann-pop .ann-sep{width:1px;height:22px;background:var(--rule);margin:0 2px;}
+.ann-toolbar .swatch,.ann-pop .swatch{
+  width:20px;height:20px;border-radius:50%;padding:0;border:1px solid var(--rule);cursor:pointer;
+}
+.ann-toolbar .swatch.on,.ann-pop .swatch.on{outline:2px solid var(--cinnabar);outline-offset:1px;}
 
 /* 登录 / 备注弹层 */
 .ann-panel{

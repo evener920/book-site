@@ -1,16 +1,20 @@
-// 阅读批注层：选中即高亮/划线/写备注，登录后与 Worker + D1 同步（换设备同一账号即可见）
+// 阅读批注层：选中即高亮 / 划线 / 波浪线 / 备注。
+// 设计：未登录也能用 —— 批注先存本地（localStorage），登录后自动镜像到 D1 实现跨设备同步。
+// 这样“正文可以划线/波浪线/高亮”是即时的，不必先登录（之前必须先登录，会让正文弹出一个登录大框）。
 (function () {
   const API = String(window.BOOK_API || '').replace(/\/+$/, '');
-  const CTX = 20;            // 保存的上下文长度（用于跨会话定位）
+  const CTX = 20;            // 保存的上下文长度（用于跨会话/换排版定位）
   const HOST_ID = 'page';
+  const LOCAL_KEY = 'book_anns_v1';
 
   let token = localStorage.getItem('book_token') || '';
   let user = localStorage.getItem('book_user') || '';
-  let anns = [];             // 服务端批注列表
+  let anns = [];             // 全部批注（本地 + 远端合并）
   let cur = null;            // 当前页信息
   let activeRange = null;    // 待保存的选区
   let activeId = null;       // 正在编辑的批注 id
-  let loaded = false;
+  let loaded = false;        // 远端是否已加载/合并
+  let curColor = 'mi';       // 当前配色：mi 米黄 / lv 浅绿 / fen 浅粉
   let authPanel, annBar, annPop;
 
   function $(id) { return document.getElementById(id); }
@@ -21,6 +25,34 @@
     return e;
   }
   function msg(t) { const m = $('ann-msg'); if (m) m.textContent = t || ''; }
+
+  // 柔和阅读配色（与后台写书一致：米黄 / 浅绿 / 浅粉）
+  const PALETTE = {
+    mi:  { bg: 'rgba(247,236,201,.55)', line: '#cd9b3e', label: '米黄', solid: '#f7ecc9' },
+    lv:  { bg: 'rgba(217,236,210,.55)', line: '#4f9e6b', label: '浅绿', solid: '#d9ecd2' },
+    fen: { bg: 'rgba(248,220,230,.55)', line: '#d76b94', label: '浅粉', solid: '#f8dce6' }
+  };
+  // 旧账号遗留配色（D1 里可能存的是 gold/cinnabar/moss/indigo），保留以兼容历史批注
+  const LEGACY = {
+    gold:     { bg: 'rgba(214,164,60,.32)', line: '#d6a43c' },
+    cinnabar: { bg: 'rgba(156,74,54,.22)', line: '#9c4a36' },
+    moss:     { bg: 'rgba(94,122,96,.26)',  line: '#5e7a60' },
+    indigo:   { bg: 'rgba(70,94,128,.22)', line: '#465e80' }
+  };
+
+  // ---------------- 本地存储 ----------------
+  function loadLocal() {
+    try { anns = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); }
+    catch (e) { anns = []; }
+  }
+  function saveLocal() {
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify(anns)); } catch (e) { /* 隐私模式等忽略 */ }
+  }
+  function keyOf(a) { return [a.pageGlobal, a.quote, a.type, a.color].join('|'); }
+  function findAnn(id) {
+    for (let i = 0; i < anns.length; i++) if (String(anns[i].id) === String(id)) return anns[i];
+    return null;
+  }
 
   // ---------------- UI ----------------
   function buildUI() {
@@ -49,7 +81,7 @@
       '<button id="ann-do-login">登录</button>' +
       '<button id="ann-do-register">注册并登录</button>' +
       '</div>' +
-      '<p class="ann-hint">同一账号在任意设备登录，批注都会同步过来。</p>' +
+      '<p class="ann-hint">不登录也能划线/波浪线/高亮（存在本机）。登录后可在任意设备同步批注。</p>' +
       '<div class="ann-row"><button id="ann-close">关闭</button><button id="ann-logout">退出登录</button></div>' +
       '<p id="ann-msg" class="ann-msg"></p>' +
       '</div>';
@@ -63,9 +95,15 @@
     annBar.className = 'ann-toolbar hidden';
     annBar.id = 'ann-toolbar';
     annBar.innerHTML =
-      '<button data-act="highlight" data-color="gold">高亮</button>' +
-      '<button data-act="underline" data-color="cinnabar">划线</button>' +
-      '<button data-act="note">备注…</button>' +
+      '<button data-act="highlight" title="高亮（文字加柔和底色）">🔆 高亮</button>' +
+      '<button data-act="underline" title="划线（文字下方加直线）">▁ 划线</button>' +
+      '<button data-act="wave" title="波浪线（文字下方加波浪线）">〰 波浪</button>' +
+      '<button data-act="note" title="高亮并写备注">备注…</button>' +
+      '<span class="ann-sep"></span>' +
+      '<button data-color="mi" class="swatch on" title="米黄" style="background:#f7ecc9"></button>' +
+      '<button data-color="lv" class="swatch" title="浅绿" style="background:#d9ecd2"></button>' +
+      '<button data-color="fen" class="swatch" title="浅粉" style="background:#f8dce6"></button>' +
+      '<span class="ann-sep"></span>' +
       '<button data-act="cancel">取消</button>';
     document.body.appendChild(annBar);
     annBar.addEventListener('click', onToolbarClick);
@@ -76,10 +114,9 @@
     annPop.innerHTML =
       '<textarea id="ann-note" rows="3" placeholder="写下你的想法…"></textarea>' +
       '<div class="ann-row ann-colors">' +
-      '<button data-color="gold">藤黄</button>' +
-      '<button data-color="cinnabar">朱砂</button>' +
-      '<button data-color="moss">松绿</button>' +
-      '<button data-color="indigo">靛青</button>' +
+      '<button data-color="mi" class="swatch on" title="米黄" style="background:#f7ecc9"></button>' +
+      '<button data-color="lv" class="swatch" title="浅绿" style="background:#d9ecd2"></button>' +
+      '<button data-color="fen" class="swatch" title="浅粉" style="background:#f8dce6"></button>' +
       '</div>' +
       '<div class="ann-row">' +
       '<button id="ann-save">保存</button>' +
@@ -97,7 +134,7 @@
 
   function updateAuthBtn() {
     const b = $('btn-auth');
-    if (b) b.textContent = user ? ('已登录 ' + user) : '登录';
+    if (b) b.textContent = user ? ('已登录 ' + user) : '登录/同步';
   }
 
   function openAuth() {
@@ -111,7 +148,7 @@
   async function authReq(path) {
     if (!API) { msg('未配置 API 地址'); return; }
     const username = ($('ann-username').value || '').trim();
-    const password = $('ann-password').value || '';
+    const password = ($('ann-password').value || '');
     if (!username || !password) { msg('请填写用户名和密码'); return; }
     try {
       const r = await fetch(API + path, {
@@ -127,34 +164,65 @@
         localStorage.setItem('book_user', user);
         updateAuthBtn();
         authPanel.classList.add('hidden');
-        loaded = false;
-        await loadAnns();
-        applyAll();
+        await syncAfterLogin();
       } else {
         msg((d && d.error) || '登录失败');
       }
     } catch (e) { msg('网络异常：' + e.message); }
   }
 
-  function logout() {
+  async function logout() {
     token = ''; user = ''; loaded = false;
     localStorage.removeItem('book_token');
     localStorage.removeItem('book_user');
-    anns = [];
-    clearAnnMarks();
     updateAuthBtn();
-    msg('已退出登录');
+    msg('已退出登录（本机批注仍保留）');
   }
 
-  // ---------------- 批注数据 ----------------
-  async function loadAnns() {
-    if (!token || !API) { anns = []; return; }
+  // ---------------- 远端（D1）同步 ----------------
+  async function loadRemote() {
+    if (!token || !API) return;
     try {
       const r = await fetch(API + '/api/annotations', { headers: { 'Authorization': 'Bearer ' + token } });
       const d = await r.json().catch(function () { return {}; });
-      anns = (d && d.annotations) || [];
+      const list = (d && d.annotations) || [];
+      mergeRemote(list);
       loaded = true;
-    } catch (e) { anns = []; }
+    } catch (e) { /* 忽略 */ }
+  }
+
+  // 把远端批注并入本地：同 id 更新；同内容键则认领（标记已同步）；新远端则加入
+  function mergeRemote(list) {
+    let changed = false;
+    list.forEach(function (r) {
+      const existing = anns.find(function (a) { return String(a.id) === String(r.id); });
+      if (existing) {
+        existing.note = r.note; existing.color = r.color; existing.type = r.type; existing.synced = true;
+        return;
+      }
+      const dup = anns.find(function (a) { return !a.synced && keyOf(a) === keyOf(r); });
+      if (dup) { dup.id = r.id; dup.synced = true; changed = true; return; }
+      anns.push({
+        id: r.id, articleTitle: r.articleTitle, volume: r.volume, pageGlobal: r.pageGlobal,
+        quote: r.quote, prefix: r.prefix, suffix: r.suffix, startOffset: r.startOffset,
+        type: r.type, color: r.color, note: r.note || '', synced: true
+      });
+      changed = true;
+    });
+    if (changed) saveLocal();
+  }
+
+  // 登录后：拉取远端，并把本机未同步的批注推上去（实现跨设备）
+  async function syncAfterLogin() {
+    await loadRemote();
+    const unsynced = anns.filter(function (a) { return !a.synced; });
+    for (let i = 0; i < unsynced.length; i++) {
+      await api('POST', '/api/annotations', toBody(unsynced[i])).then(function (d) {
+        if (d && d.annotation) { unsynced[i].id = d.annotation.id; unsynced[i].synced = true; }
+      }).catch(function () {});
+    }
+    saveLocal();
+    if (cur) applyForPage();
   }
 
   function api(method, path, body) {
@@ -166,6 +234,13 @@
       ),
       body: body ? JSON.stringify(body) : undefined
     }).then(function (r) { return r.json().catch(function () { return {}; }); });
+  }
+  function toBody(a) {
+    return {
+      articleTitle: a.articleTitle, volume: a.volume, pageGlobal: a.pageGlobal,
+      quote: a.quote, prefix: a.prefix, suffix: a.suffix, startOffset: a.startOffset,
+      type: a.type, color: a.color, note: a.note || ''
+    };
   }
 
   // ---------------- 文本锚点 ----------------
@@ -213,46 +288,61 @@
     return { node: last, offset: last.nodeValue.length };
   }
 
-  // 把一段 Range 包成批注元素（跨节点也会包，且不与已有批注嵌套）
+  // 把一段 Range 包成批注元素（跨节点也会包，且不与已有批注嵌套）。
+  // 用“全局偏移”定位，避免选区跨越被上一条批注切开的节点边界时，startOffset/endOffset
+  // 被误当成当前节点内偏移而包出空片段（相邻批注重渲染失败的根因）。
   function wrap(range, ann) {
     const host = $(HOST_ID);
-    const nodes = [];
+    const gStart = rangeStartIdx(range);
+    const gEnd = gStart + range.toString().length;
+    if (gEnd <= gStart) return false;
     const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
       acceptNode: function (n) {
-        if (!range.intersectsNode(n)) return NodeFilter.FILTER_REJECT;
+        if (!n.nodeValue) return NodeFilter.FILTER_REJECT;
         let p = n.parentElement;
         while (p && p !== host) {
-          if (p.classList && p.classList.contains('ann')) return NodeFilter.FILTER_REJECT;
+          if (p.classList && p.classList.contains('page-number')) return NodeFilter.FILTER_REJECT;
           p = p.parentElement;
         }
         return NodeFilter.FILTER_ACCEPT;
       }
     });
+    const nodes = [];
     let t;
     while ((t = walker.nextNode())) nodes.push(t);
     if (!nodes.length) return false;
 
-    nodes.forEach(function (node, i) {
-      let s = (i === 0) ? range.startOffset : 0;
-      let e2 = (i === nodes.length - 1) ? range.endOffset : node.nodeValue.length;
-      if (s < 0) s = 0;
-      if (e2 > node.nodeValue.length) e2 = node.nodeValue.length;
+    let sum = 0;
+    let wrapped = false;
+    nodes.forEach(function (node) {
+      // 已经在别的批注里就跳过，避免嵌套/重复包裹
+      let pp = node.parentElement;
+      while (pp && pp !== host) { if (pp.classList && pp.classList.contains('ann')) return; pp = pp.parentElement; }
+      const nodeStart = sum;
+      const nodeEnd = sum + node.nodeValue.length;
+      sum = nodeEnd;
+      const s = Math.max(nodeStart, gStart);
+      const e2 = Math.min(nodeEnd, gEnd);
       if (e2 <= s) return;
       let target = node;
-      if (s > 0) target = target.splitText(s);
-      if (e2 - s < target.nodeValue.length) target.splitText(e2 - s);
-      const el = document.createElement(ann.type === 'underline' ? 'span' : 'mark');
-      el.className = 'ann ann-' + ann.type + ' ann-' + (ann.color || 'gold');
+      const localS = s - nodeStart;
+      const localE = e2 - nodeStart;
+      if (localS > 0) target = target.splitText(localS);
+      if (localE - localS < target.nodeValue.length) target.splitText(localE - localS);
+      const el = document.createElement((ann.type === 'underline' || ann.type === 'wave') ? 'span' : 'mark');
+      el.className = 'ann ann-' + ann.type + ' ann-' + (ann.color || 'mi');
       el.setAttribute('data-ann-id', ann.id);
       target.parentNode.insertBefore(el, target);
       el.appendChild(target);
+      wrapped = true;
     });
-    return true;
+    return wrapped;
   }
 
-  function applyOne(ann) {
+  // 在“当前全文”中定位一条批注，返回 {start, end}（字符偏移，含 .ann 文本，与 rangeStartIdx 同一坐标系）
+  function locateAnn(ann) {
     const nodes = collectTextNodes();
-    if (!nodes.length) return false;
+    if (!nodes.length) return null;
     const full = nodes.map(function (n) { return n.nodeValue; }).join('');
     let start = -1;
     const ctx = ann.prefix + ann.quote + ann.suffix;
@@ -268,31 +358,67 @@
         if (best === -1 || Math.abs(i - ann.startOffset) < Math.abs(best - ann.startOffset)) best = i;
         from = i + 1;
       }
-      if (best === -1) return false;
+      if (best === -1) return null;
       start = best;
     }
-    const end = start + ann.quote.length;
+    return { start: start, end: start + ann.quote.length };
+  }
+
+  // 把 [start,end) 这段文本包成批注元素（基于当前 DOM 重新定位，支持跨节点）
+  function wrapSpan(start, end, ann) {
+    const nodes = collectTextNodes();
+    if (!nodes.length) return;
     const s = locate(nodes, start);
     const e = locate(nodes, end);
-    if (!s || !e) return false;
+    if (!s || !e) return;
     const range = document.createRange();
     try {
       range.setStart(s.node, s.offset);
       range.setEnd(e.node, e.offset);
-    } catch (err) { return false; }
-    return wrap(range, ann);
+    } catch (err) { return; }
+    wrap(range, ann);
   }
 
-  function applyAll() {
+  // 整页渲染：先清干净，再为所有批注计算区间、按边界切分、从后往前包裹。
+  // 这样支持相邻/重叠批注，且不会产生重复包裹（旧逻辑逐条包 + walker 排斥 .ann 导致坐标系错位）。
+  function applyForPage() {
     if (!cur) return;
+    clearAnnMarks();   // 清掉当前页已有的 .ann，从干净文本重新渲染
     const list = anns.filter(function (a) { return a.pageGlobal === cur.globalPage; });
-    list.forEach(applyOne);
+    if (!list.length) return;
+
+    const spans = [];
+    list.forEach(function (ann) {
+      const r = locateAnn(ann);
+      if (r) spans.push({ start: r.start, end: r.end, ann: ann });
+    });
+    if (!spans.length) return;
+
+    const bounds = {};
+    spans.forEach(function (s) { bounds[s.start] = 1; bounds[s.end] = 1; });
+    const pts = Object.keys(bounds).map(Number).sort(function (a, b) { return a - b; });
+
+    const segs = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      if (b <= a) continue;
+      let chosen = null;
+      for (let j = spans.length - 1; j >= 0; j--) {
+        // 重叠时取“后做”的那条覆盖（视觉上以最新操作为准）
+        if (spans[j].start <= a && spans[j].end >= b) { chosen = spans[j].ann; break; }
+      }
+      if (chosen) segs.push({ start: a, end: b, ann: chosen });
+    }
+
+    segs.sort(function (x, y) { return y.start - x.start; }); // 从后往前，避免 splitText 影响前面段的定位
+    segs.forEach(function (seg) { wrapSpan(seg.start, seg.end, seg.ann); });
   }
 
   function clearAnnMarks() {
     const host = $(HOST_ID);
     if (!host) return;
-    Array.prototype.slice.call(host.querySelectorAll('.ann')).forEach(function (m) {
+    const found = host.querySelectorAll('.ann');
+    Array.prototype.slice.call(found).forEach(function (m) {
       const p = m.parentNode;
       while (m.firstChild) p.insertBefore(m.firstChild, m);
       p.removeChild(m);
@@ -324,27 +450,30 @@
   });
 
   function onToolbarClick(e) {
-    const act = e.target && e.target.dataset ? e.target.dataset.act : null;
+    const t = e.target;
+    if (!t || !t.dataset) return;
+    if (t.dataset.color) {
+      // 切换配色，工具条保持打开
+      curColor = t.dataset.color;
+      annBar.querySelectorAll('.swatch').forEach(function (s) { s.classList.toggle('on', s.dataset.color === curColor); });
+      return;
+    }
+    const act = t.dataset.act;
     if (!act) return;
     annBar.classList.add('hidden');
     if (act === 'cancel') return;
-    if (!token) { openAuth(); msg('请先登录再标注'); return; }
-    const color = (e.target.dataset.color) || 'gold';
-    if (act === 'note') createAnn('highlight', 'gold', '').then(function (id) {
-      if (id != null) openPop(id);
-    });
-    else createAnn(act, color, '');
+    if (act === 'note') createAnn('highlight', curColor, '').then(function (id) { if (id != null) openPop(id); });
+    else createAnn(act, curColor, '');
   }
 
   async function createAnn(type, color, note) {
     if (!activeRange) return null;
     const quote = activeRange.toString();
     if (!quote.trim()) return null;
-    if (!API || !token) return null;
-
     const full = fullText();
     const start = rangeStartIdx(activeRange);
-    const body = {
+    const ann = {
+      id: 'l_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
       articleTitle: cur ? cur.articleTitle : '',
       volume: cur ? cur.volume : '',
       pageGlobal: cur ? cur.globalPage : 0,
@@ -354,30 +483,26 @@
       startOffset: start,
       type: type,
       color: color,
-      note: note || ''
+      note: note || '',
+      synced: false
     };
-    try {
-      const d = await api('POST', '/api/annotations', body);
-      if (d && d.annotation) {
-        anns.push(d.annotation);
-        wrap(activeRange, d.annotation);
-        activeId = d.annotation.id;
-        return d.annotation.id;
-      }
-    } catch (err) { /* 静默失败 */ }
-    return null;
-  }
-
-  function findAnn(id) {
-    for (let i = 0; i < anns.length; i++) if (anns[i].id === Number(id)) return anns[i];
-    return null;
+    anns.push(ann);
+    saveLocal();
+    applyForPage();   // 统一由 applyForPage 包裹（幂等：先清后包），避免 createAnn 直接包 + book:page 再包导致重复
+    activeId = ann.id;
+    if (token && API) {
+      const d = await api('POST', '/api/annotations', toBody(ann)).catch(function () { return {}; });
+      if (d && d.annotation) { ann.id = d.annotation.id; ann.synced = true; saveLocal(); }
+    }
+    return ann.id;
   }
 
   function openPop(id) {
-    activeId = Number(id);
+    activeId = id;
     const a = findAnn(activeId);
     if (!a) return;
     $('ann-note').value = a.note || '';
+    annPop.querySelectorAll('.ann-colors .swatch').forEach(function (s) { s.classList.toggle('on', s.dataset.color === (a.color || 'mi')); });
     annPop.classList.remove('hidden');
     annPop.style.top = '120px';
     annPop.style.left = Math.max(8, window.innerWidth / 2 - 150) + 'px';
@@ -386,44 +511,38 @@
   async function saveNote() {
     if (activeId == null) return;
     const note = $('ann-note').value;
-    const d = await api('PATCH', '/api/annotations/' + activeId, { note: note });
-    if (d && d.changed) {
-      const a = findAnn(activeId);
-      if (a) a.note = note;
-      annPop.classList.add('hidden');
-    }
+    const a = findAnn(activeId);
+    if (a) { a.note = note; saveLocal(); if (token && API) await api('PATCH', '/api/annotations/' + a.id, { note: note }); }
+    annPop.classList.add('hidden');
   }
 
   async function setColor(color) {
     if (activeId == null) return;
-    const d = await api('PATCH', '/api/annotations/' + activeId, { color: color });
-    if (d && d.changed) {
-      const a = findAnn(activeId);
-      if (a) {
-        a.color = color;
-        // 重绘该批注的颜色
-        Array.prototype.slice.call($(HOST_ID).querySelectorAll('.ann[data-ann-id="' + activeId + '"]')).forEach(function (m) {
-          m.className = 'ann ann-' + a.type + ' ann-' + color;
-        });
-      }
-    }
+    curColor = color;
+    const a = findAnn(activeId);
+    if (!a) return;
+    a.color = color; saveLocal();
+    Array.prototype.slice.call($(HOST_ID).querySelectorAll('.ann[data-ann-id="' + activeId + '"]')).forEach(function (m) {
+      m.className = 'ann ann-' + a.type + ' ann-' + color;
+    });
+    annPop.querySelectorAll('.ann-colors .swatch').forEach(function (s) { s.classList.toggle('on', s.dataset.color === color); });
+    if (token && API) await api('PATCH', '/api/annotations/' + a.id, { color: color });
   }
 
   async function deleteActive() {
     if (activeId == null) return;
     const host = $(HOST_ID);
-    const d = await api('DELETE', '/api/annotations/' + activeId);
-    if (d && d.changed) {
-      Array.prototype.slice.call(host.querySelectorAll('.ann[data-ann-id="' + activeId + '"]')).forEach(function (m) {
-        const p = m.parentNode;
-        while (m.firstChild) p.insertBefore(m.firstChild, m);
-        p.removeChild(m);
-        p.normalize();
-      });
-      anns = anns.filter(function (a) { return a.id !== activeId; });
-      annPop.classList.add('hidden');
-      activeId = null;
-    }
+    anns = anns.filter(function (a) { return String(a.id) !== String(activeId); });
+    saveLocal();
+    Array.prototype.slice.call(host.querySelectorAll('.ann[data-ann-id="' + activeId + '"]')).forEach(function (m) {
+      const p = m.parentNode;
+      while (m.firstChild) p.insertBefore(m.firstChild, m);
+      p.removeChild(m);
+      p.normalize();
+    });
+    if (token && API) await api('DELETE', '/api/annotations/' + activeId);
+    annPop.classList.add('hidden');
+    activeId = null;
   }
 
   document.addEventListener('click', function (e) {
@@ -432,7 +551,6 @@
     if (target && target.getAttribute('data-ann-id')) {
       openPop(target.getAttribute('data-ann-id'));
     } else if (!annPop.contains(e.target) && !annBar.contains(e.target)) {
-      // 点空白处收起弹层（点工具条除外）
       if (!annPop.classList.contains('hidden')) annPop.classList.add('hidden');
     }
   });
@@ -460,15 +578,15 @@
   // ---------------- 页切换 ----------------
   document.addEventListener('book:page', function (e) {
     cur = e.detail;
-    if (token && API && !loaded) {
-      loadAnns().then(applyAll);
-    } else {
-      applyAll();
+    applyForPage();                 // 先渲染本机批注（即时，无需登录）
+    if (token && API && !loaded) {   // 登录则并行拉取云端批注
+      loadRemote().then(applyForPage);
     }
   });
 
   function init() {
     if (!$(HOST_ID)) { setTimeout(init, 200); return; }
+    loadLocal();
     buildUI();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

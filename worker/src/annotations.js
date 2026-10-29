@@ -44,7 +44,7 @@ export async function create(env, req, body) {
     String(b.prefix || ''),
     String(b.suffix || ''),
     Number(b.startOffset || 0),
-    b.type === 'underline' ? 'underline' : 'highlight',
+    (b.type === 'underline' || b.type === 'wave') ? b.type : 'highlight',
     String(b.color || 'cinnabar'),
     String(b.note || '')
   ).run();
@@ -61,7 +61,7 @@ export async function update(env, req, id, body) {
   const vals = [];
   if (b.note != null) { sets.push('note = ?'); vals.push(String(b.note)); }
   if (b.color != null) { sets.push('color = ?'); vals.push(String(b.color)); }
-  if (b.type != null) { sets.push('type = ?'); vals.push(b.type === 'underline' ? 'underline' : 'highlight'); }
+  if (b.type != null) { sets.push('type = ?'); vals.push((b.type === 'underline' || b.type === 'wave') ? b.type : 'highlight'); }
   if (!sets.length) return json(env, req, { error: '没有可更新的字段' }, 400);
 
   sets.push("updated_at = datetime('now')");
