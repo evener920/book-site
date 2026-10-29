@@ -101,7 +101,7 @@ function main() {
     try { apiBase = JSON.parse(fs.readFileSync(apiCfg, 'utf8')).api || ''; } catch (e) { apiBase = ''; }
   }
   const version = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
-  ['index.html', 'admin.html'].forEach(function (name) {
+  ['index.html', 'admin.html', 'manage.html'].forEach(function (name) {
     const f = path.join(distDir, name);
     if (!fs.existsSync(f)) return;
     const html = fs.readFileSync(f, 'utf8');

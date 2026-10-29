@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>已有内容 · 后台</title>
+  <link rel="stylesheet" href="./reader.css?v=__V__" />
+  <link rel="stylesheet" href="./admin.css?v=__V__" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <a href="./">← 回到书</a>
+      <span id="who" style="color:var(--ink-soft)">未登录</span>
+    </div>
+
+    <h1>已有内容</h1>
+    <p class="sub">可编辑或删除已发布的内容；改动会写回 GitHub，Pages 自动重建上线</p>
+
+    <nav class="nav">
+      <a href="./admin.html">写书</a>
+      <a href="./manage.html" class="active">已有内容</a>
+    </nav>
+
+    <div class="card" id="login-card">
+      <div class="field">
+        <label>用户名</label>
+        <input id="u" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <input id="p" type="password" autocomplete="current-password" />
+      </div>
+      <button class="btn" id="btn-login">登录</button>
+      <button class="btn ghost" id="btn-reg">注册</button>
+      <div class="status" id="login-status"></div>
+    </div>
+
+    <div class="card hidden" id="list-card">
+      <h2>已发布内容</h2>
+      <ul class="list" id="art-list"></ul>
+    </div>
+
+    <!-- 编辑表单：仅在点击“编辑”时展开 -->
+    <div class="card hidden" id="edit-card">
+      <h2>编辑《<span id="edit-name"></span>》</h2>
+      <div class="two">
+        <div class="field" style="flex:2">
+          <label>标题</label>
+          <input id="title" />
+        </div>
+        <div class="field">
+          <label>卷</label>
+          <input id="volume" list="vol-list" />
+          <datalist id="vol-list"></datalist>
+        </div>
+      </div>
+      <div class="two">
+        <div class="field">
+          <label>日期</label>
+          <input id="date" type="date" />
+        </div>
+        <div class="field">
+          <label>顺序 order</label>
+          <input id="order" type="number" />
+        </div>
+      </div>
+      <div class="field">
+        <label>正文（Markdown）</label>
+        <textarea id="body"></textarea>
+      </div>
+      <button class="btn" id="btn-save">保存修改</button>
+      <button class="btn ghost" id="btn-cancel">取消编辑</button>
+      <button class="btn ghost" id="btn-logout">退出</button>
+      <div class="status" id="edit-status"></div>
+    </div>
+  </div>
+
+  <script>window.BOOK_API = "__BOOK_API__";</script>
+  <script>
+  (function () {
+    const API = String(window.BOOK_API || '').replace(/\/+$/, '');
+    const $ = function (id) { return document.getElementById(id); };
+    let token = localStorage.getItem('book_token') || '';
+    let user = localStorage.getItem('book_user') || '';
+
+    function setStatus(el, t) { $(el).innerHTML = t || ''; }
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    const byFile = {};      // file → 文章对象
+    let editingFile = null; // 正在编辑的文件路径
+
+    async function call(method, path, body) {
+      const r = await fetch(API + path, {
+        method: method,
+        headers: Object.assign({ 'Content-Type': 'application/json' },
+          token ? { 'Authorization': 'Bearer ' + token } : {}),
+        body: body ? JSON.stringify(body) : undefined
+      });
+      let d = {};
+      try { d = await r.json(); } catch (e) { d = {}; }
+      if (r.status === 401) { logout(); d.error = d.error || '登录已失效，请重新登录'; }
+      return d;
+    }
+
+    async function authReq(path) {
+      const u = $('u').value.trim();
+      const p = $('p').value;
+      if (!u || !p) { setStatus('login-status', '请填写用户名和密码'); return; }
+      setStatus('login-status', '正在验证…');
+      const d = await call('POST', path, { username: u, password: p });
+      if (d.token) {
+        token = d.token;
+        localStorage.setItem('book_token', token);
+        localStorage.setItem('book_user', d.username);
+        user = d.username;
+        afterLogin();
+      } else {
+        setStatus('login-status', d.error || '失败');
+      }
+    }
+
+    function logout() {
+      token = ''; user = '';
+      localStorage.removeItem('book_token');
+      localStorage.removeItem('book_user');
+      $('edit-card').classList.add('hidden');
+      $('list-card').classList.add('hidden');
+      $('login-card').classList.remove('hidden');
+      $('who').textContent = '未登录';
+    }
+
+    async function afterLogin() {
+      $('login-card').classList.add('hidden');
+      $('list-card').classList.remove('hidden');
+      $('who').textContent = '已登录 ' + user;
+      setStatus('login-status', '');
+      await loadArticles();
+    }
+
+    async function loadArticles() {
+      const d = await call('GET', '/api/articles');
+      if (d.error) { setStatus('edit-status', d.error); return; }
+      const articles = d.articles || [];
+      const vols = [];
+      articles.forEach(function (a) { if (a.volume && vols.indexOf(a.volume) === -1) vols.push(a.volume); });
+      $('vol-list').innerHTML = vols.map(function (v) { return '<option value="' + esc(v) + '">'; }).join('');
+      for (const k in byFile) delete byFile[k];
+      articles.forEach(function (a) { byFile[a.file] = a; });
+      $('art-list').innerHTML = articles.slice().sort(function (a, b) {
+        return a.order - b.order || a.file.localeCompare(b.file);
+      }).map(function (a) {
+        return '<li data-file="' + esc(a.file) + '">' +
+          '<span class="ord">' + esc(a.order) + '</span>' +
+          '<span class="ttl">' + esc(a.title) + '</span>' +
+          '<span class="vol">' + esc(a.volume || '') + ' · ' + esc(a.date || '') + '</span>' +
+          '<span class="acts">' +
+          '<button type="button" class="mini edit-btn">编辑</button>' +
+          '<button type="button" class="mini del del-btn">删除</button>' +
+          '</span></li>';
+      }).join('');
+    }
+
+    function editArticle(file) {
+      const a = byFile[file];
+      if (!a) return;
+      editingFile = file;
+      $('edit-name').textContent = a.title || '';
+      $('title').value = a.title || '';
+      $('volume').value = a.volume || '';
+      $('date').value = a.date || new Date().toISOString().slice(0, 10);
+      $('order').value = a.order || '';
+      $('body').value = a.body || '';
+      setStatus('edit-status', '改完点“保存修改”即可（改卷 / 顺序 / 标题会自动移动文件）。');
+      $('edit-card').classList.remove('hidden');
+      window.scrollTo({ top: $('edit-card').offsetTop - 12, behavior: 'smooth' });
+      $('title').focus();
+    }
+
+    function cancelEdit() {
+      editingFile = null;
+      $('title').value = '';
+      $('volume').value = '';
+      $('order').value = '';
+      $('body').value = '';
+      $('edit-card').classList.add('hidden');
+      setStatus('edit-status', '');
+    }
+
+    async function deleteArticle(file) {
+      const a = byFile[file];
+      const name = a ? a.title : file;
+      if (!confirm('确认删除《' + name + '》？\n删除后站点会自动重建并下线该篇，GitHub 上对应文件也会移除（不可恢复）。')) return;
+      setStatus('edit-status', '正在删除《' + name + '》…');
+      const d = await call('DELETE', '/api/articles', { file: file });
+      if (d.ok) {
+        setStatus('edit-status', '✓ 已删除《' + name + '》，Pages 即将自动重建下线。');
+        if (editingFile === file) cancelEdit();
+        await loadArticles();
+      } else {
+        setStatus('edit-status', '✗ ' + (d.error || '删除失败') + (d.detail ? '<br>' + JSON.stringify(d.detail) : ''));
+      }
+    }
+
+    async function save() {
+      if (!editingFile) return;
+      const title = $('title').value.trim();
+      const body = $('body').value;
+      if (!title || !body.trim()) { setStatus('edit-status', '标题和正文不能为空'); return; }
+      const orderRaw = $('order').value.trim();
+      const payload = {
+        file: editingFile,
+        title: title,
+        volume: $('volume').value.trim(),
+        date: $('date').value,
+        body: body
+      };
+      if (orderRaw) payload.order = Number(orderRaw);
+      setStatus('edit-status', '正在保存修改…');
+      const d = await call('PATCH', '/api/articles', payload);
+      if (d.ok) {
+        setStatus('edit-status', '✓ 已保存《' + title + '》' +
+          (d.movedFrom ? '（已从 ' + d.movedFrom + ' 移动）' : '') +
+          (d.commitUrl ? ' · <a href="' + d.commitUrl + '" target="_blank">查看提交</a>' : '') +
+          '<br>Cloudflare Pages 会在一分钟内自动重建并上线。');
+        cancelEdit();
+        await loadArticles();
+      } else {
+        setStatus('edit-status', '✗ ' + (d.error || '保存失败') + (d.detail ? '<br>' + JSON.stringify(d.detail) : ''));
+      }
+    }
+
+    $('btn-login').onclick = function () { authReq('/api/auth/login'); };
+    $('btn-reg').onclick = function () { authReq('/api/auth/register'); };
+    $('btn-logout').onclick = logout;
+    $('btn-save').onclick = save;
+    $('btn-cancel').onclick = cancelEdit;
+    $('art-list').addEventListener('click', function (e) {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const li = btn.closest('li');
+      const file = li && li.getAttribute('data-file');
+      if (!file) return;
+      if (btn.classList.contains('edit-btn')) editArticle(file);
+      else if (btn.classList.contains('del-btn')) deleteArticle(file);
+    });
+
+    if (!API) {
+      setStatus('login-status', '未配置 API 地址：构建时请设置环境变量 BOOK_API');
+      $('btn-login').disabled = true;
+      $('btn-reg').disabled = true;
+      return;
+    }
+    if (token) afterLogin();
+  })();
+  </script>
+</body>
+</html>

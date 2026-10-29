@@ -1,0 +1,51 @@
+/* 后台共用样式：写书(admin.html) 与 已有内容(manage.html) 共享 */
+.wrap{max-width:760px;margin:0 auto;padding:28px 20px 60px;}
+.wrap h1{font-size:22px;color:var(--cinnabar);letter-spacing:2px;margin:0 0 4px;text-align:center;}
+.wrap .sub{text-align:center;color:var(--ink-soft);font-size:13px;margin:0 0 18px;}
+
+/* 顶部：回到书 / 已登录态 */
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;font-size:14px;}
+.topbar a{color:var(--cinnabar);text-decoration:none;}
+.topbar a:hover{opacity:.8;}
+
+/* 两个后台页面之间的切换标签 */
+.nav{display:flex;width:fit-content;margin:0 auto 24px;border:1px solid var(--rule);border-radius:6px;overflow:hidden;}
+.nav a{font-family:var(--serif);font-size:14px;padding:8px 24px;text-decoration:none;color:var(--ink-soft);border-right:1px solid var(--rule);}
+.nav a:last-child{border-right:none;}
+.nav a.active{background:var(--cinnabar);color:#f7f2e4;}
+
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:22px 24px;margin-bottom:18px;}
+.card h2{font-size:17px;color:var(--cinnabar);margin:0 0 12px;border-left:3px solid var(--cinnabar);padding-left:10px;}
+
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:14px;color:var(--ink-soft);margin-bottom:6px;letter-spacing:1px;}
+.field input,.field textarea,.field select{
+  width:100%;font-family:var(--serif);font-size:15px;line-height:1.9;
+  border:1px solid var(--rule);border-radius:4px;background:#fbf7ec;
+  color:var(--ink);padding:8px 10px;box-sizing:border-box;
+}
+.field textarea{min-height:320px;resize:vertical;}
+.two{display:flex;gap:12px;flex-wrap:wrap;}
+.two .field{flex:1;min-width:180px;}
+
+.btn{
+  font-family:var(--serif);font-size:15px;background:var(--cinnabar);
+  border:1px solid var(--cinnabar);color:#f7f2e4;
+  padding:9px 20px;border-radius:4px;cursor:pointer;
+}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule);}
+.btn:hover{opacity:.9;}
+.btn.small{padding:6px 14px;font-size:14px;}
+
+.status{font-size:14px;min-height:22px;margin-top:12px;color:var(--cinnabar);line-height:1.7;}
+.status a{color:var(--cinnabar);}
+
+.list{list-style:none;padding:0;margin:0;}
+.list li{padding:9px 2px;border-bottom:1px solid var(--rule);font-size:14px;display:flex;gap:10px;align-items:baseline;}
+.list .ord{color:var(--cinnabar);min-width:34px;}
+.list .ttl{flex:1;min-width:0;}
+.list .vol{color:var(--ink-soft);font-size:13px;}
+.list .acts{margin-left:auto;display:flex;gap:8px;flex-shrink:0;}
+.mini{font-family:var(--serif);font-size:12px;padding:4px 12px;border-radius:4px;cursor:pointer;background:transparent;border:1px solid var(--rule);color:var(--ink);}
+.mini:hover{opacity:.85;}
+.mini.del{color:var(--cinnabar);border-color:var(--cinnabar);}
