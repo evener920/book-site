@@ -41,21 +41,23 @@ body{
    避免 flex 居中把放大后的左/上边缘顶出可滚动区导致被裁 */
 #stage{flex:1;display:flex;overflow:auto;padding:16px 24px;}
 .page{
-  width:700px;max-width:100%;min-height:0;height:auto;background:var(--paper);
+  width:820px;max-width:100%;min-height:0;height:auto;background:var(--paper);
   background-image:linear-gradient(180deg,#fefcf8,#faf6ec);
-  box-shadow:0 10px 38px rgba(70,58,36,.16),0 1px 4px rgba(0,0,0,.06);
-  border:none;                       /* 去掉硬质矩形边框，改成活页纸观感 */
-  padding:72px 70px 64px;           /* 顶部留白给活页孔 */
+  /* 柔和投影：像一张平铺的纸，而不是浮在中间的硬盒子（消除“矩形框”观感） */
+  box-shadow:0 2px 18px rgba(70,58,36,.10);
+  border:none;
+  padding:56px 70px 64px 96px;      /* 左侧留白给活页装订边 */
   position:relative;margin:auto;
   /* 屏幕书页高度随内容自然伸展：正文紧贴顶部、页码贴最底部，中间不留大段空白
      （“文字靠近页脚”）。打印/PDF 仍走 .page-print 的固定整页，短篇在 PDF 留出底部空白是标准页式。 */
 }
-/* 活页孔：顶部一排浅色圆孔，暗示每页是可抽换的活页、可在中间插入新页 */
+/* 活页装订边：左侧一排浅色装订环（活页夹在左侧，而非顶部孔），
+   暗示每页是可抽换/可往中间插入的活页——满足“能够插入页面”的设计意图 */
 .page::before{
-  content:"";position:absolute;top:22px;left:46px;right:46px;height:12px;
-  background-image:radial-gradient(circle, #e4d9c1 0 4px, transparent 4px);
-  background-size:42px 12px;background-repeat:repeat-x;background-position:center;
-  opacity:.85;
+  content:"";position:absolute;left:30px;top:54px;bottom:54px;width:14px;
+  background-image:radial-gradient(circle, #e6dcc6 0 4.5px, transparent 5px);
+  background-size:14px 30px;background-repeat:repeat-y;background-position:center;
+  opacity:.7;
 }
 .page section{display:flow-root;}
 /* 页脚（页码）：贴页面最底部，分隔线贯通整页宽（与 Word 页脚一致，不再过窄） */
@@ -186,6 +188,22 @@ body{
   box-shadow:0 12px 34px rgba(60,45,20,.34);padding:16px 18px;
 }
 .ann-colors button{flex:1;min-width:60px;font-size:13px;}
+
+/* 插入新页面弹层 */
+.modal{position:fixed;inset:0;z-index:80;background:rgba(40,30,15,.4);display:flex;align-items:center;justify-content:center;}
+.modal.hidden{display:none;}
+.modal-card{background:var(--paper);border:1px solid var(--rule);border-radius:10px;box-shadow:0 18px 50px rgba(40,30,15,.42);padding:24px 26px;width:440px;max-width:94vw;max-height:90vh;overflow:auto;}
+.modal-card h3{margin:0 0 14px;color:var(--cinnabar);font-size:19px;letter-spacing:2px;}
+.modal-card label{display:block;font-size:13px;color:var(--ink-soft);margin:12px 0 4px;letter-spacing:.5px;}
+.modal-card input,.modal-card select,.modal-card textarea{
+  width:100%;font-family:var(--serif);font-size:15px;border:1px solid var(--rule);border-radius:4px;
+  background:#fbf7ec;color:var(--ink);padding:8px 10px;box-sizing:border-box;
+}
+.modal-card textarea{line-height:1.7;resize:vertical;}
+.modal-row{display:flex;gap:8px;margin-top:16px;}
+.modal-row button{flex:1;font-family:var(--serif);font-size:14px;background:transparent;border:1px solid var(--rule);color:var(--ink);padding:8px 10px;border-radius:4px;cursor:pointer;}
+.modal-row button:hover{background:var(--paper-edge);}
+.modal-msg{font-size:13px;color:var(--cinnabar);min-height:18px;margin:12px 0 0;line-height:1.7;}
 @media print{
   /* 关键：强制 A4 + 零边距，否则浏览器按默认纸张（常为 Letter）或默认页边距排版，
      书页内容约 990px 高在 Letter(≈1056px)−默认边距(≈76px)=≈980px 下会溢出，

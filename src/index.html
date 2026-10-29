@@ -31,12 +31,33 @@
         <button id="btn-print" title="打印 / 导出 PDF">打印</button>
         <button id="btn-pdf" title="下载 PDF">下载 PDF</button>
         <button id="btn-admin" title="后台写文章">写书</button>
+        <button id="btn-insert" title="在中间插入新页面">＋插入页</button>
       </div>
       <div id="stage">
         <div id="page" class="page"></div>
       </div>
     </div>
     <div id="toc-mask" class="toc-mask hidden"></div>
+  </div>
+
+  <!-- 插入新页面 -->
+  <div id="insert-modal" class="modal hidden">
+    <div class="modal-card">
+      <h3>插入新页面</h3>
+      <label>标题</label>
+      <input id="ins-title" placeholder="如：第四章 新的篇章" />
+      <label>所属卷（留空则取插入位置的卷）</label>
+      <input id="ins-volume" placeholder="如：卷一" />
+      <label>插入到（其后）</label>
+      <select id="ins-after"></select>
+      <label>正文（Markdown，支持 # 标题、**加粗**、列表等）</label>
+      <textarea id="ins-body" rows="6" placeholder="在此输入新页面内容…"></textarea>
+      <div class="modal-row">
+        <button id="ins-gen">生成 .md 文件</button>
+        <button id="ins-close">关闭</button>
+      </div>
+      <p id="ins-msg" class="modal-msg"></p>
+    </div>
   </div>
   <script src="./reader.js?v=__V__"></script>
   <script>window.BOOK_API = "__BOOK_API__";</script>
