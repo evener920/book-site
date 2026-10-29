@@ -6,7 +6,7 @@
 |---|---|---|
 | 书（Pages） | https://pages.201573.xyz | 自定义域（生效后为主地址） |
 | 书（默认域） | https://book-site-aev.pages.dev | 备用访问地址 |
-| 后台（Pages） | https://pages.201573.xyz/admin.html | 写文章、发布到 GitHub |
+| 后台（Pages） | https://pages.201573.xyz/admin | 写文章、发布到 GitHub |
 | API（Worker） | https://book-site-api.evener920.workers.dev | 账号、批注、GitHub 发布 |
 | 数据库 | D1 `book-annotations` | 账号与批注 |
 | 源码仓库 | https://github.com/evener920/book-site | 内容即 Markdown |
@@ -39,24 +39,20 @@ push 或后台发文即触发 Actions：构建 → 精确分页 → 导出 PDF �
 
 手动触发：`gh workflow run "构建并部署网页书" && gh run watch`
 
-## 自定义域 pages.201573.xyz
+## 自定义域 pages.201573.xyz：已生效 ✅
 
-已在 Pages 项目绑定，但**还差一条 DNS 记录**才能生效（当前状态 pending）。
-在 Cloudflare Dashboard → 域 `201573.xyz` → DNS → Records 添加：
+DNS 已解析（A 记录 → Cloudflare 边缘），Pages 域名状态 `active`，HTTPS 证书已签发。
 
-| 字段 | 值 |
+| 项 | 值 |
 |---|---|
-| Type | `CNAME` |
-| Name | `pages` |
-| Target | `book-site-aev.pages.dev` |
-| Proxy | 开启（橙云） |
+| DNS | `pages.201573.xyz` → A `104.21.52.244` / `172.67.205.213`（橙云代理） |
+| Pages 域名状态 | `active`，验证方式 `http` |
+| 证书 | Cloudflare 自动签发，HTTP/2 200 |
 
-保存后等 1–5 分钟，证书自动签发，状态转 active 即可访问。
+> 注意：Cloudflare Pages 会把 `/admin.html` **308 重定向**到 `/admin`（`.html` 后缀会被去掉）。
+> 站点内链接已统一指向 `/admin`，省掉一次跳转。
 
-> 说明：当前 API token 没有 Zone DNS 写权限（`10000 Authentication error`），所以这条记录无法由脚本代劳。
-> 若要我以后能自动改 DNS，重建 token 时加上 `Zone → DNS → Edit` 权限即可。
-
-Worker 的 `ALLOWED_ORIGINS` 已包含 `https://pages.201573.xyz`；`*.pages.dev` / `*.workers.dev` 也自动放行。
+Worker 的 `ALLOWED_ORIGINS` 已包含 `https://pages.201573.xyz`；`*.pages.dev` / `*.workers.dev` 也自动放行（CORS 预检已验证通过）。
 
 ## 前端批注
 

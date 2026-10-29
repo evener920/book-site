@@ -278,7 +278,8 @@
     const pdfBtn = document.getElementById('btn-pdf');
     if (pdfBtn) pdfBtn.onclick = function () { window.location.href = './book.pdf'; };
     const adminBtn = document.getElementById('btn-admin');
-    if (adminBtn) adminBtn.onclick = function () { window.location.href = v('./admin.html'); };
+    // Pages 会把 /admin.html 308 跳到 /admin，直接指过去省一次跳转
+    if (adminBtn) adminBtn.onclick = function () { window.location.href = v('./admin'); };
     document.getElementById('toc-mask').onclick = closeToc;
     document.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowLeft') showPage(current - 1);
