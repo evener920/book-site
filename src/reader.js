@@ -82,6 +82,75 @@
     return Array.prototype.slice.call(t.children);
   }
 
+  // 自动大纲化（第 1 步）：把正文里的“编号式条目”（1. / 1.1 / 2.3.1 …）识别为大纲标题，
+  // 按编号段数映射为 Markdown 标题层级（1 → #、1.1 → ##、1.1.2 → ### …），其余正文原样保留。
+  // 这样作者无需手写 # 也能得到清晰大纲。同时把“看起来像正文句子、却以 # 开头”的误标题
+  // （如讲解代码注释的 “# 后面是注释。”）转义成普通段落，避免污染大纲。
+  function outlineMarkdown(raw) {
+    const lines = raw.split(/\r?\n/);
+    const out = [];
+    let inFence = false; // 跳过围栏代码块（``` / ~~~），块内行不当作大纲
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; out.push(line); continue; }
+      if (inFence) { out.push(line); continue; }
+
+      // 作者用 # 显式写的标题：
+      //   · 单 # 起头 → 本库里几乎都是“未加围栏代码块里的命令行注释”，一律转义成普通段落，
+      //     避免变成巨号标题（正文小节请用 ## / ###，自动大纲的 N. 会被转成 #/## 也是真标题）。
+      //   · ## / ### 起头 → 真实标题，直接保留；但若内容“像正文句子 / 编号 shell 注释”也转义。
+      const hm = line.match(/^(\s{0,3})(#{1,6})\s+(\S.*)$/);
+      if (hm) {
+        const hashes = hm[2];
+        const text = hm[3];
+        const looksLikeSentence = /[，,]/.test(text) || /[。！？]$/.test(text) || /^\d+[)、]/.test(text);
+        if (hashes.length === 1 || looksLikeSentence) {
+          out.push(hm[1] + '\\' + hashes + ' ' + text);
+        } else {
+          out.push(line);
+        }
+        continue;
+      }
+
+      // 编号式大纲条目：N. 或 N.M 或 N.M.K（必须含“.”才认作大纲，避免把“2026 年”这类普通数字句误判）。
+      // 顿号 N、 也支持。
+      const om = line.match(/^(\s*)(\d+(?:\.\d+)+|\d+\.|\d+、)\s*(\S.*)$/);
+      if (om) {
+        // 取编号段数定层级：1.→1 段(h1)，1.1→2 段(h2)，1.1.2→3 段(h3)……
+        const num = om[2].replace(/[、.]$/, ''); // 去掉末尾顿号/点，得到纯编号
+        const depth = Math.min(num.split('.').length, 6);
+        out.push('#'.repeat(depth) + ' ' + line.trim());
+      } else {
+        out.push(line);
+      }
+    }
+    return out.join('\n');
+  }
+
+  // 自动大纲化（第 2 步）：把一篇正文里实际出现的最小标题层级平移到 h1，
+  // 保证“一级标题永远最大”，无论作者用的是 # 还是 ## 起步。
+  function normalizeHeadings(root) {
+    const hs = [];
+    root.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(function (el) { hs.push(el); });
+    if (!hs.length) return;
+    let min = 6;
+    hs.forEach(function (el) {
+      const lv = parseInt(el.tagName.charAt(1), 10);
+      if (lv < min) min = lv;
+    });
+    if (min === 1) return;
+    const shift = min - 1;
+    hs.forEach(function (el) {
+      const lv = parseInt(el.tagName.charAt(1), 10);
+      const newLv = Math.min(6, lv - shift);
+      const n = document.createElement('h' + newLv);
+      n.innerHTML = el.innerHTML;
+      if (el.className) n.className = el.className;
+      if (el.id) n.id = el.id;
+      el.parentNode.replaceChild(n, el);
+    });
+  }
+
   async function load() {
     let manifest;
     try {
@@ -165,12 +234,14 @@
     for (let i = 0; i < manifest.articles.length; i++) {
       const a = manifest.articles[i];
       const raw = await fetch(v(encodeURI('./content/' + a.file))).then(function (r) { return r.text(); });
-      const html = (window.marked ? marked.parse(raw) : '<pre>' + raw + '</pre>');
+      const outlined = outlineMarkdown(raw);
+      const html = (window.marked ? marked.parse(outlined) : '<pre>' + outlined + '</pre>');
       const section = document.createElement('section');
       section.setAttribute('data-title', a.title);
       section.setAttribute('data-volume', a.volume || '');
       section.innerHTML =
         '<div class="meta">' + (a.volume ? a.volume + ' · ' : '') + a.title + '</div>' + html;
+      normalizeHeadings(section); // 自动大纲化：把正文各级标题归一为“一级最大”的清晰层级
       measure.appendChild(section);
     }
 
