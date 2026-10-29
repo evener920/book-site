@@ -4,8 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>道德经 · 网页书</title>
-  <link rel="stylesheet" href="./reader.css" />
-  <script src="./vendor/marked.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/marked@12/marked.min.js';document.head.appendChild(s);"></script>
+  <link rel="stylesheet" href="./reader.css?v=__V__" />
+  <script>window.BOOK_VERSION = "__V__";</script>
+  <script src="./vendor/marked.min.js?v=__V__" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/marked@12/marked.min.js';document.head.appendChild(s);"></script>
 </head>
 <body>
   <div id="app">
@@ -27,8 +28,8 @@
     </aside>
     <div id="toc-mask" class="toc-mask hidden"></div>
   </div>
-  <script src="./reader.js"></script>
+  <script src="./reader.js?v=__V__"></script>
   <script>window.BOOK_API = "__BOOK_API__";</script>
-  <script src="./annotate.js"></script>
+  <script src="./annotate.js?v=__V__"></script>
 </body>
 </html>

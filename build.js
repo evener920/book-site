@@ -100,11 +100,12 @@ function main() {
   if (!apiBase && fs.existsSync(apiCfg)) {
     try { apiBase = JSON.parse(fs.readFileSync(apiCfg, 'utf8')).api || ''; } catch (e) { apiBase = ''; }
   }
+  const version = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
   ['index.html', 'admin.html'].forEach(function (name) {
     const f = path.join(distDir, name);
     if (!fs.existsSync(f)) return;
     const html = fs.readFileSync(f, 'utf8');
-    fs.writeFileSync(f, html.replace(/__BOOK_API__/g, apiBase));
+    fs.writeFileSync(f, html.replace(/__BOOK_API__/g, apiBase).replace(/__V__/g, version));
   });
   console.log('✓ API 地址注入：' + (apiBase || '（未配置，批注与后台不可用）'));
 

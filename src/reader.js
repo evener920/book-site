@@ -15,6 +15,13 @@
   const indicator = document.getElementById('page-indicator');
   const tocList = document.getElementById('toc-list');
 
+  // 给静态资源加版本戳，避免浏览器/CDN 缓存旧版（新增按钮、改样式后立刻生效）
+  function v(url) {
+    const ver = window.BOOK_VERSION;
+    if (!ver) return url;
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(ver);
+  }
+
   function htmlToNodes(html) {
     const t = document.createElement('div');
     t.innerHTML = html || '';
@@ -24,7 +31,7 @@
   async function load() {
     let manifest;
     try {
-      manifest = await fetch('./manifest.json').then(function (r) { return r.json(); });
+      manifest = await fetch(v('./manifest.json')).then(function (r) { return r.json(); });
     } catch (e) {
       pageEl.innerHTML = '<p style="color:#9c4a36">加载 manifest.json 失败，请先运行 node build.js 生成。</p>';
       return;
@@ -34,7 +41,7 @@
     let prebuilt = false;
     if (!FORCE_MEASURE) {
       try {
-        const res = await fetch('./pages.json');
+        const res = await fetch(v('./pages.json'));
         if (res.ok) {
           const data = await res.json();
           if (data && data.pages && data.pages.length) {
@@ -100,7 +107,7 @@
 
     for (let i = 0; i < manifest.articles.length; i++) {
       const a = manifest.articles[i];
-      const raw = await fetch(encodeURI('./content/' + a.file)).then(function (r) { return r.text(); });
+      const raw = await fetch(v(encodeURI('./content/' + a.file))).then(function (r) { return r.text(); });
       const html = (window.marked ? marked.parse(raw) : '<pre>' + raw + '</pre>');
       const section = document.createElement('section');
       section.setAttribute('data-title', a.title);
@@ -242,7 +249,7 @@
     const pdfBtn = document.getElementById('btn-pdf');
     if (pdfBtn) pdfBtn.onclick = function () { window.location.href = './book.pdf'; };
     const adminBtn = document.getElementById('btn-admin');
-    if (adminBtn) adminBtn.onclick = function () { window.location.href = './admin.html'; };
+    if (adminBtn) adminBtn.onclick = function () { window.location.href = v('./admin.html'); };
     document.getElementById('toc-mask').onclick = closeToc;
     document.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowLeft') showPage(current - 1);
