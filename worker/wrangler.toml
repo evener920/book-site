@@ -1,0 +1,24 @@
+name = "book-site-api"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+account_id = "82129ffe005dfd5010505adf73de06cb"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "book-annotations"
+database_id = "5ff9a9ef-bf34-4bcf-825f-aa30b79a313e"
+
+[vars]
+# 后台把文章写到哪个 GitHub 仓库
+GITHUB_OWNER = "evener920"
+GITHUB_REPO = "book-site"
+GITHUB_BRANCH = "main"
+
+# 允许调用 API 的站点来源（Pages 域名 + 本地预览）
+ALLOWED_ORIGINS = "http://localhost:8123,http://127.0.0.1:8123,https://book.201573.xyz"
+
+# 只有这些用户名可以发布文章（批注账号谁都能注册，发文章不行）
+ADMIN_USERNAMES = "evener920"
+
+# 密钥用 wrangler secret put 设置，不写在这里：
+#   wrangler secret put GITHUB_TOKEN

@@ -93,6 +93,21 @@ function main() {
   // 前端源码
   copyDir(srcDir, distDir);
 
+  // 注入 Worker API 地址（前端不持有任何密钥，只持地址）
+  //  优先环境变量 BOOK_API，其次 api.config.json，最后为空（批注功能禁用）
+  let apiBase = process.env.BOOK_API || '';
+  const apiCfg = path.join(root, 'api.config.json');
+  if (!apiBase && fs.existsSync(apiCfg)) {
+    try { apiBase = JSON.parse(fs.readFileSync(apiCfg, 'utf8')).api || ''; } catch (e) { apiBase = ''; }
+  }
+  ['index.html', 'admin.html'].forEach(function (name) {
+    const f = path.join(distDir, name);
+    if (!fs.existsSync(f)) return;
+    const html = fs.readFileSync(f, 'utf8');
+    fs.writeFileSync(f, html.replace(/__BOOK_API__/g, apiBase));
+  });
+  console.log('✓ API 地址注入：' + (apiBase || '（未配置，批注与后台不可用）'));
+
   // content：保持子目录结构，剥离 frontmatter 便于前端直接渲染
   // 先清空，避免文章重命名/调整卷目录后残留旧副本
   const distContent = path.join(distDir, 'content');

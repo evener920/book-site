@@ -173,7 +173,8 @@
     current = Math.max(0, Math.min(i, pages.length - 1));
     pageEl.innerHTML = '';
     const frag = document.createDocumentFragment();
-    pages[current].items.forEach(function (el) { frag.appendChild(el); });
+    // 用克隆渲染：源 items 保持干净，批注包裹不会污染原内容
+    pages[current].items.forEach(function (el) { frag.appendChild(el.cloneNode(true)); });
     pageEl.appendChild(frag);
     const pgNum = document.createElement('div');
     pgNum.className = 'page-number';
@@ -181,6 +182,19 @@
     pageEl.appendChild(pgNum);
     indicator.textContent = indicatorText(current);
     localStorage.setItem('book-page', String(current));
+
+    // 通知批注层：当前页已渲染（批注据此重绘）
+    try {
+      var firstItem = pages[current].items[0];
+      document.dispatchEvent(new CustomEvent('book:page', {
+        detail: {
+          index: current,
+          globalPage: pages[current].globalPage,
+          volume: pages[current].volume || '',
+          articleTitle: (firstItem && firstItem.getAttribute) ? (firstItem.getAttribute('data-title') || '') : ''
+        }
+      }));
+    } catch (e) { /* 批注层未加载时忽略 */ }
   }
 
   function buildToc(manifest) {
@@ -227,6 +241,8 @@
     document.getElementById('btn-print').onclick = function () { buildPrintBook(); window.print(); };
     const pdfBtn = document.getElementById('btn-pdf');
     if (pdfBtn) pdfBtn.onclick = function () { window.location.href = './book.pdf'; };
+    const adminBtn = document.getElementById('btn-admin');
+    if (adminBtn) adminBtn.onclick = function () { window.location.href = './admin.html'; };
     document.getElementById('toc-mask').onclick = closeToc;
     document.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowLeft') showPage(current - 1);

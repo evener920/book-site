@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>写书 · 后台</title>
+  <link rel="stylesheet" href="./reader.css" />
+  <style>
+    .wrap{max-width:760px;margin:0 auto;padding:28px 20px 60px;}
+    .wrap h1{font-size:22px;color:var(--cinnabar);letter-spacing:2px;margin:0 0 4px;text-align:center;}
+    .wrap .sub{text-align:center;color:var(--ink-soft);font-size:13px;margin:0 0 24px;}
+    .card{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:22px 24px;margin-bottom:18px;}
+    .field{margin-bottom:14px;}
+    .field label{display:block;font-size:14px;color:var(--ink-soft);margin-bottom:6px;letter-spacing:1px;}
+    .field input,.field textarea,.field select{
+      width:100%;font-family:var(--serif);font-size:15px;line-height:1.9;
+      border:1px solid var(--rule);border-radius:4px;background:#fbf7ec;
+      color:var(--ink);padding:8px 10px;box-sizing:border-box;
+    }
+    .field textarea{min-height:320px;resize:vertical;}
+    .two{display:flex;gap:12px;flex-wrap:wrap;}
+    .two .field{flex:1;min-width:180px;}
+    .btn{
+      font-family:var(--serif);font-size:15px;background:var(--cinnabar);
+      border:1px solid var(--cinnabar);color:#f7f2e4;
+      padding:9px 20px;border-radius:4px;cursor:pointer;
+    }
+    .btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule);}
+    .btn:hover{opacity:.9;}
+    .status{font-size:14px;min-height:22px;margin-top:12px;color:var(--cinnabar);line-height:1.7;}
+    .status a{color:var(--cinnabar);}
+    .list{list-style:none;padding:0;margin:0;}
+    .list li{padding:9px 2px;border-bottom:1px solid var(--rule);font-size:14px;display:flex;gap:10px;align-items:baseline;}
+    .list .ord{color:var(--cinnabar);min-width:34px;}
+    .list .vol{color:var(--ink-soft);font-size:13px;}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;font-size:14px;}
+    .topbar a{color:var(--cinnabar);text-decoration:none;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <a href="./">← 回到书</a>
+      <span id="who" style="color:var(--ink-soft)">未登录</span>
+    </div>
+
+    <h1>写书</h1>
+    <p class="sub">发布后写入 GitHub 仓库，Pages 自动重建，新内容接在书末</p>
+
+    <div class="card" id="login-card">
+      <div class="field">
+        <label>用户名</label>
+        <input id="u" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <input id="p" type="password" autocomplete="current-password" />
+      </div>
+      <button class="btn" id="btn-login">登录</button>
+      <button class="btn ghost" id="btn-reg">注册</button>
+      <div class="status" id="login-status"></div>
+    </div>
+
+    <div class="card hidden" id="form-card">
+      <div class="two">
+        <div class="field" style="flex:2">
+          <label>标题</label>
+          <input id="title" placeholder="如：道德经·第四章" />
+        </div>
+        <div class="field">
+          <label>卷（留空则不并入任何卷）</label>
+          <input id="volume" placeholder="如：卷一" list="vol-list" />
+          <datalist id="vol-list"></datalist>
+        </div>
+      </div>
+      <div class="two">
+        <div class="field">
+          <label>日期</label>
+          <input id="date" type="date" />
+        </div>
+        <div class="field">
+          <label>顺序 order（越大越靠后，留空自动取末尾）</label>
+          <input id="order" type="number" placeholder="自动" />
+        </div>
+      </div>
+      <div class="field">
+        <label>正文（Markdown）</label>
+        <textarea id="body" placeholder="道冲而用之或不盈……"></textarea>
+      </div>
+      <button class="btn" id="btn-publish">发布到书末</button>
+      <button class="btn ghost" id="btn-logout">退出</button>
+      <div class="status" id="pub-status"></div>
+    </div>
+
+    <div class="card hidden" id="list-card">
+      <h2 style="font-size:17px;color:var(--cinnabar);margin:0 0 12px;border-left:3px solid var(--cinnabar);padding-left:10px;">已有内容</h2>
+      <ul class="list" id="art-list"></ul>
+    </div>
+  </div>
+
+  <script>window.BOOK_API = "__BOOK_API__";</script>
+  <script>
+  (function () {
+    const API = String(window.BOOK_API || '').replace(/\/+$/, '');
+    const $ = function (id) { return document.getElementById(id); };
+    let token = localStorage.getItem('book_token') || '';
+    let user = localStorage.getItem('book_user') || '';
+
+    function setStatus(el, t) { $(el).innerHTML = t || ''; }
+
+    async function call(method, path, body) {
+      const r = await fetch(API + path, {
+        method: method,
+        headers: Object.assign({ 'Content-Type': 'application/json' },
+          token ? { 'Authorization': 'Bearer ' + token } : {}),
+        body: body ? JSON.stringify(body) : undefined
+      });
+      let d = {};
+      try { d = await r.json(); } catch (e) { d = {}; }
+      if (r.status === 401) { logout(); d.error = d.error || '登录已失效，请重新登录'; }
+      return d;
+    }
+
+    async function authReq(path) {
+      const u = $('u').value.trim();
+      const p = $('p').value;
+      if (!u || !p) { setStatus('login-status', '请填写用户名和密码'); return; }
+      setStatus('login-status', '正在验证…');
+      const d = await call('POST', path, { username: u, password: p });
+      if (d.token) {
+        token = d.token;
+        localStorage.setItem('book_token', token);
+        localStorage.setItem('book_user', d.username);
+        user = d.username;
+        afterLogin();
+      } else {
+        setStatus('login-status', d.error || '失败');
+      }
+    }
+
+    function logout() {
+      token = ''; user = '';
+      localStorage.removeItem('book_token');
+      localStorage.removeItem('book_user');
+      $('form-card').classList.add('hidden');
+      $('list-card').classList.add('hidden');
+      $('login-card').classList.remove('hidden');
+      $('who').textContent = '未登录';
+    }
+
+    async function afterLogin() {
+      $('login-card').classList.add('hidden');
+      $('form-card').classList.remove('hidden');
+      $('list-card').classList.remove('hidden');
+      $('who').textContent = '已登录 ' + user;
+      $('date').value = new Date().toISOString().slice(0, 10);
+      setStatus('login-status', '');
+      await loadArticles();
+    }
+
+    async function loadArticles() {
+      const d = await call('GET', '/api/articles');
+      if (d.error) { setStatus('pub-status', d.error); return; }
+      const list = d.articles || [];
+      $('order').placeholder = '自动（建议 ' + d.suggestedOrder + '）';
+      // 已有卷名 → 下拉候选
+      const vols = [];
+      list.forEach(function (a) { if (a.volume && vols.indexOf(a.volume) === -1) vols.push(a.volume); });
+      $('vol-list').innerHTML = vols.map(function (v) { return '<option value="' + v + '">'; }).join('');
+      $('art-list').innerHTML = list.slice().sort(function (a, b) { return a.order - b.order; })
+        .map(function (a) {
+          return '<li><span class="ord">' + a.order + '</span><span>' + a.title +
+            '</span><span class="vol">' + (a.volume || '') + ' · ' + (a.date || '') + '</span></li>';
+        }).join('');
+    }
+
+    async function publish() {
+      const title = $('title').value.trim();
+      const body = $('body').value;
+      if (!title || !body.trim()) { setStatus('pub-status', '标题和正文不能为空'); return; }
+      const orderRaw = $('order').value.trim();
+      const payload = {
+        title: title,
+        volume: $('volume').value.trim(),
+        date: $('date').value,
+        body: body
+      };
+      if (orderRaw) payload.order = Number(orderRaw);
+      setStatus('pub-status', '正在提交到 GitHub…');
+      const d = await call('POST', '/api/publish', payload);
+      if (d.ok) {
+        setStatus('pub-status', '✓ 已发布到 <code>' + d.path + '</code>（order=' + d.order + '）' +
+          (d.commitUrl ? ' · <a href="' + d.commitUrl + '" target="_blank">查看提交</a>' : '') +
+          '<br>Cloudflare Pages 会在一分钟内自动重建，新内容接在书末。');
+        $('title').value = '';
+        $('body').value = '';
+        $('order').value = '';
+        await loadArticles();
+      } else {
+        setStatus('pub-status', '✗ ' + (d.error || '发布失败') + (d.detail ? '<br>' + JSON.stringify(d.detail) : ''));
+      }
+    }
+
+    $('btn-login').onclick = function () { authReq('/api/auth/login'); };
+    $('btn-reg').onclick = function () { authReq('/api/auth/register'); };
+    $('btn-logout').onclick = logout;
+    $('btn-publish').onclick = publish;
+
+    if (!API) {
+      setStatus('login-status', '未配置 API 地址：构建时请设置环境变量 BOOK_API');
+      $('btn-login').disabled = true;
+      $('btn-reg').disabled = true;
+      return;
+    }
+    if (token) afterLogin();
+  })();
+  </script>
+</body>
+</html>

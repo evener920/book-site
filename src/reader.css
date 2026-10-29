@@ -58,6 +58,64 @@ body{
 .toc-mask{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:15;}
 .hidden{display:none!important;}
 #print-book{display:none;}
+
+/* ===== 批注层 ===== */
+.ann{cursor:pointer;border-radius:2px;}
+.ann-highlight{background:transparent;padding:1px 0;}
+.ann-highlight.ann-gold{background:rgba(214,164,60,.32);}
+.ann-highlight.ann-cinnabar{background:rgba(156,74,54,.26);}
+.ann-highlight.ann-moss{background:rgba(94,122,96,.28);}
+.ann-highlight.ann-indigo{background:rgba(70,94,128,.26);}
+.ann-underline{border-bottom:2px solid #9c4a36;}
+.ann-underline.ann-gold{border-bottom-color:#d6a43c;}
+.ann-underline.ann-cinnabar{border-bottom-color:#9c4a36;}
+.ann-underline.ann-moss{border-bottom-color:#5e7a60;}
+.ann-underline.ann-indigo{border-bottom-color:#465e80;}
+
+/* 选中后的悬浮工具条 */
+.ann-toolbar{
+  position:fixed;z-index:60;display:flex;gap:6px;
+  background:var(--paper);border:1px solid var(--rule);border-radius:6px;
+  box-shadow:0 6px 22px rgba(60,45,20,.3);padding:6px;
+}
+.ann-toolbar button{
+  font-family:var(--serif);font-size:14px;background:transparent;
+  border:1px solid var(--rule);color:var(--ink);
+  padding:5px 12px;border-radius:4px;cursor:pointer;
+}
+.ann-toolbar button:hover{background:var(--paper-edge);}
+
+/* 登录 / 备注弹层 */
+.ann-panel{
+  position:fixed;inset:0;z-index:70;background:rgba(40,30,15,.4);
+  display:flex;align-items:center;justify-content:center;
+}
+.ann-card{
+  background:var(--paper);border:1px solid var(--rule);border-radius:8px;
+  box-shadow:0 18px 50px rgba(40,30,15,.45);
+  padding:26px 28px;width:330px;
+}
+.ann-card h3{margin:0 0 16px;color:var(--cinnabar);font-size:19px;letter-spacing:2px;text-align:center;}
+.ann-card input,.ann-card textarea{
+  width:100%;font-family:var(--serif);font-size:15px;
+  border:1px solid var(--rule);border-radius:4px;background:#fbf7ec;
+  color:var(--ink);padding:8px 10px;margin-bottom:10px;box-sizing:border-box;
+}
+.ann-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+.ann-row button{
+  flex:1;min-width:88px;font-family:var(--serif);font-size:14px;
+  background:transparent;border:1px solid var(--rule);color:var(--ink);
+  padding:7px 10px;border-radius:4px;cursor:pointer;
+}
+.ann-row button:hover{background:var(--paper-edge);}
+.ann-hint{font-size:13px;color:var(--ink-soft);line-height:1.7;margin:12px 0 4px;}
+.ann-msg{font-size:13px;color:var(--cinnabar);min-height:18px;margin:8px 0 0;text-align:center;}
+.ann-pop{
+  position:fixed;z-index:65;width:320px;
+  background:var(--paper);border:1px solid var(--rule);border-radius:8px;
+  box-shadow:0 12px 34px rgba(60,45,20,.34);padding:16px 18px;
+}
+.ann-colors button{flex:1;min-width:60px;font-size:13px;}
 @media print{
   body{background:#fff;}
   #app{display:none!important;}

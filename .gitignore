@@ -4,3 +4,7 @@ node_modules/
 *.log
 .playwright-cli/
 preview.png
+api.config.json
+worker/.dev.vars
+preview-admin.png
+worker/.wrangler/

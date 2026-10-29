@@ -16,6 +16,7 @@
       <button id="btn-toc" title="目录">目录</button>
       <button id="btn-print" title="打印 / 导出 PDF">打印</button>
       <button id="btn-pdf" title="下载 PDF">下载 PDF</button>
+      <button id="btn-admin" title="后台写文章">写书</button>
     </div>
     <div id="stage">
       <div id="page" class="page"></div>
@@ -27,5 +28,7 @@
     <div id="toc-mask" class="toc-mask hidden"></div>
   </div>
   <script src="./reader.js"></script>
+  <script>window.BOOK_API = "__BOOK_API__";</script>
+  <script src="./annotate.js"></script>
 </body>
 </html>
