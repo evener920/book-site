@@ -4,8 +4,9 @@
 
 | 部件 | 地址 | 说明 |
 |---|---|---|
-| 书（Pages） | https://book-site-aev.pages.dev | 翻页阅读器，公开访问 |
-| 后台（Pages） | https://book-site-aev.pages.dev/admin.html | 写文章、发布到 GitHub |
+| 书（Pages） | https://pages.201573.xyz | 自定义域（生效后为主地址） |
+| 书（默认域） | https://book-site-aev.pages.dev | 备用访问地址 |
+| 后台（Pages） | https://pages.201573.xyz/admin.html | 写文章、发布到 GitHub |
 | API（Worker） | https://book-site-api.evener920.workers.dev | 账号、批注、GitHub 发布 |
 | 数据库 | D1 `book-annotations` | 账号与批注 |
 | 源码仓库 | https://github.com/evener920/book-site | 内容即 Markdown |
@@ -31,34 +32,31 @@
 Cloudflare Pages 自身的构建环境没有浏览器，所以精确分页放在 GitHub Actions 里做。
 万一 Actions 没跑，前端会自动回退到运行时分页（内容正确、页码仍连续，只是不同浏览器可能有微小差异）。
 
-## 还需要你做一件事（否则自动化不会触发）
+## 自动化状态：已接通 ✅
 
-Actions 需要 Cloudflare API 凭据。目前 `CLOUDFLARE_API_TOKEN` 未配置，workflow 会**自动跳过**（不会报错，但也不会部署）。
+`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`BOOK_API` 三个 secret 均已配置。
+push 或后台发文即触发 Actions：构建 → 精确分页 → 导出 PDF → 部署 Pages，约 1 分钟。
 
-1. 打开 https://dash.cloudflare.com/profile/api-tokens → Create Token
-2. 用模板 **Edit Cloudflare Workers**（或自定义：Account → Cloudflare Pages:Edit + Workers Scripts:Edit）
-3. 复制 token，在仓库目录执行：
+手动触发：`gh workflow run "构建并部署网页书" && gh run watch`
 
-```bash
-gh secret set CLOUDFLARE_API_TOKEN
-gh secret set CLOUDFLARE_ACCOUNT_ID <<< '82129ffe005dfd5010505adf73de06cb'
-gh secret set BOOK_API <<< 'https://book-site-api.evener920.workers.dev'
-```
+## 自定义域 pages.201573.xyz
 
-4. 验证：`gh workflow run "构建并部署网页书"` 然后 `gh run watch`
+已在 Pages 项目绑定，但**还差一条 DNS 记录**才能生效（当前状态 pending）。
+在 Cloudflare Dashboard → 域 `201573.xyz` → DNS → Records 添加：
 
-配好后，后台发文章 → 大约一分钟后站点自动更新。
+| 字段 | 值 |
+|---|---|
+| Type | `CNAME` |
+| Name | `pages` |
+| Target | `book-site-aev.pages.dev` |
+| Proxy | 开启（橙云） |
 
-## 绑定自定义域名（如 book.201573.xyz）
+保存后等 1–5 分钟，证书自动签发，状态转 active 即可访问。
 
-涉及 DNS，不自动执行。拿到 Pages 项目后手动加：
+> 说明：当前 API token 没有 Zone DNS 写权限（`10000 Authentication error`），所以这条记录无法由脚本代劳。
+> 若要我以后能自动改 DNS，重建 token 时加上 `Zone → DNS → Edit` 权限即可。
 
-```bash
-wrangler pages domain add book-site --domain book.201573.xyz
-```
-
-然后把 `book.201573.xyz` 加入 Worker 的 `ALLOWED_ORIGINS`（`worker/wrangler.toml`），
-并重新 `cd worker && wrangler deploy`。（`*.pages.dev` / `*.workers.dev` 已自动放行。）
+Worker 的 `ALLOWED_ORIGINS` 已包含 `https://pages.201573.xyz`；`*.pages.dev` / `*.workers.dev` 也自动放行。
 
 ## 前端批注
 
