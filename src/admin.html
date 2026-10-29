@@ -32,7 +32,12 @@
     .list{list-style:none;padding:0;margin:0;}
     .list li{padding:9px 2px;border-bottom:1px solid var(--rule);font-size:14px;display:flex;gap:10px;align-items:baseline;}
     .list .ord{color:var(--cinnabar);min-width:34px;}
+    .list .ttl{flex:1;min-width:0;}
     .list .vol{color:var(--ink-soft);font-size:13px;}
+    .list .acts{margin-left:auto;display:flex;gap:8px;flex-shrink:0;}
+    .mini{font-family:var(--serif);font-size:12px;padding:4px 12px;border-radius:4px;cursor:pointer;background:transparent;border:1px solid var(--rule);color:var(--ink);}
+    .mini:hover{opacity:.85;}
+    .mini.del{color:var(--cinnabar);border-color:var(--cinnabar);}
     .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;font-size:14px;}
     .topbar a{color:var(--cinnabar);text-decoration:none;}
   </style>
@@ -88,6 +93,7 @@
         <textarea id="body" placeholder="道冲而用之或不盈……"></textarea>
       </div>
       <button class="btn" id="btn-publish">发布到书末</button>
+      <button class="btn ghost hidden" id="btn-cancel">取消编辑</button>
       <button class="btn ghost" id="btn-logout">退出</button>
       <div class="status" id="pub-status"></div>
     </div>
@@ -107,6 +113,15 @@
     let user = localStorage.getItem('book_user') || '';
 
     function setStatus(el, t) { $(el).innerHTML = t || ''; }
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    let articles = [];      // 最近一次拉取的文章列表
+    let editingFile = null; // 正在编辑的文件路径；null 表示“发布新文章”模式
+    const byFile = {};      // file → 文章对象，供编辑/删除查正文
 
     async function call(method, path, body) {
       const r = await fetch(API + path, {
@@ -161,17 +176,70 @@
     async function loadArticles() {
       const d = await call('GET', '/api/articles');
       if (d.error) { setStatus('pub-status', d.error); return; }
-      const list = d.articles || [];
+      articles = d.articles || [];
       $('order').placeholder = '自动（建议 ' + d.suggestedOrder + '）';
       // 已有卷名 → 下拉候选
       const vols = [];
-      list.forEach(function (a) { if (a.volume && vols.indexOf(a.volume) === -1) vols.push(a.volume); });
-      $('vol-list').innerHTML = vols.map(function (v) { return '<option value="' + v + '">'; }).join('');
-      $('art-list').innerHTML = list.slice().sort(function (a, b) { return a.order - b.order; })
-        .map(function (a) {
-          return '<li><span class="ord">' + a.order + '</span><span>' + a.title +
-            '</span><span class="vol">' + (a.volume || '') + ' · ' + (a.date || '') + '</span></li>';
-        }).join('');
+      articles.forEach(function (a) { if (a.volume && vols.indexOf(a.volume) === -1) vols.push(a.volume); });
+      $('vol-list').innerHTML = vols.map(function (v) { return '<option value="' + esc(v) + '">'; }).join('');
+      // 建索引供编辑/删除查正文
+      for (const k in byFile) delete byFile[k];
+      articles.forEach(function (a) { byFile[a.file] = a; });
+      // 渲染列表（含编辑/删除按钮）
+      $('art-list').innerHTML = articles.slice().sort(function (a, b) {
+        return a.order - b.order || a.file.localeCompare(b.file);
+      }).map(function (a) {
+        return '<li data-file="' + esc(a.file) + '">' +
+          '<span class="ord">' + esc(a.order) + '</span>' +
+          '<span class="ttl">' + esc(a.title) + '</span>' +
+          '<span class="vol">' + esc(a.volume || '') + ' · ' + esc(a.date || '') + '</span>' +
+          '<span class="acts">' +
+          '<button type="button" class="mini edit-btn">编辑</button>' +
+          '<button type="button" class="mini del del-btn">删除</button>' +
+          '</span></li>';
+      }).join('');
+    }
+
+    function editArticle(file) {
+      const a = byFile[file];
+      if (!a) return;
+      editingFile = file;
+      $('title').value = a.title || '';
+      $('volume').value = a.volume || '';
+      $('date').value = a.date || new Date().toISOString().slice(0, 10);
+      $('order').value = a.order || '';
+      $('body').value = a.body || '';
+      $('btn-publish').textContent = '保存修改';
+      $('btn-cancel').classList.remove('hidden');
+      setStatus('pub-status', '正在编辑《' + a.title + '》——改完点“保存修改”即可（改卷 / 顺序 / 标题会自动移动文件）。');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      $('title').focus();
+    }
+
+    function cancelEdit() {
+      editingFile = null;
+      $('title').value = '';
+      $('volume').value = '';
+      $('order').value = '';
+      $('body').value = '';
+      $('btn-publish').textContent = '发布到书末';
+      $('btn-cancel').classList.add('hidden');
+      setStatus('pub-status', '');
+    }
+
+    async function deleteArticle(file) {
+      const a = byFile[file];
+      const name = a ? a.title : file;
+      if (!confirm('确认删除《' + name + '》？\n删除后站点会自动重建并下线该篇，GitHub 上对应文件也会移除（不可恢复）。')) return;
+      setStatus('pub-status', '正在删除《' + name + '》…');
+      const d = await call('DELETE', '/api/articles', { file: file });
+      if (d.ok) {
+        setStatus('pub-status', '✓ 已删除《' + name + '》，Pages 即将自动重建下线。');
+        if (editingFile === file) cancelEdit();
+        await loadArticles();
+      } else {
+        setStatus('pub-status', '✗ ' + (d.error || '删除失败') + (d.detail ? '<br>' + JSON.stringify(d.detail) : ''));
+      }
     }
 
     async function publish() {
@@ -186,18 +254,20 @@
         body: body
       };
       if (orderRaw) payload.order = Number(orderRaw);
-      setStatus('pub-status', '正在提交到 GitHub…');
-      const d = await call('POST', '/api/publish', payload);
+      if (editingFile) payload.file = editingFile;
+
+      const isEdit = !!editingFile;
+      setStatus('pub-status', isEdit ? '正在保存修改…' : '正在提交到 GitHub…');
+      const d = await call(isEdit ? 'PATCH' : 'POST', isEdit ? '/api/articles' : '/api/publish', payload);
       if (d.ok) {
-        setStatus('pub-status', '✓ 已发布到 <code>' + d.path + '</code>（order=' + d.order + '）' +
+        setStatus('pub-status', '✓ 已' + (isEdit ? '保存' : '发布') + '到 <code>' + d.path + '</code>' +
+          (d.movedFrom ? '（已从 ' + d.movedFrom + ' 移动）' : '') + '（order=' + d.order + '）' +
           (d.commitUrl ? ' · <a href="' + d.commitUrl + '" target="_blank">查看提交</a>' : '') +
-          '<br>Cloudflare Pages 会在一分钟内自动重建，新内容接在书末。');
-        $('title').value = '';
-        $('body').value = '';
-        $('order').value = '';
+          '<br>Cloudflare Pages 会在一分钟内自动重建并上线。');
+        cancelEdit();
         await loadArticles();
       } else {
-        setStatus('pub-status', '✗ ' + (d.error || '发布失败') + (d.detail ? '<br>' + JSON.stringify(d.detail) : ''));
+        setStatus('pub-status', '✗ ' + (d.error || (isEdit ? '保存失败' : '发布失败')) + (d.detail ? '<br>' + JSON.stringify(d.detail) : ''));
       }
     }
 
@@ -205,6 +275,17 @@
     $('btn-reg').onclick = function () { authReq('/api/auth/register'); };
     $('btn-logout').onclick = logout;
     $('btn-publish').onclick = publish;
+    $('btn-cancel').onclick = cancelEdit;
+    // 列表内的编辑/删除（事件委托，渲染后仍然有效）
+    $('art-list').addEventListener('click', function (e) {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const li = btn.closest('li');
+      const file = li && li.getAttribute('data-file');
+      if (!file) return;
+      if (btn.classList.contains('edit-btn')) editArticle(file);
+      else if (btn.classList.contains('del-btn')) deleteArticle(file);
+    });
 
     if (!API) {
       setStatus('login-status', '未配置 API 地址：构建时请设置环境变量 BOOK_API');

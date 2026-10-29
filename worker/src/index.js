@@ -42,6 +42,8 @@ export default {
 
       if (p === '/api/articles' && req.method === 'GET') return gh.listArticles(env, req);
       if (p === '/api/publish' && req.method === 'POST') return gh.publish(env, req, await readBody(req));
+      if (p === '/api/articles' && req.method === 'PATCH') return gh.updateArticle(env, req, await readBody(req));
+      if (p === '/api/articles' && req.method === 'DELETE') return gh.deleteArticle(env, req, await readBody(req));
 
       return json(env, req, { error: '接口不存在：' + p }, 404);
     } catch (e) {

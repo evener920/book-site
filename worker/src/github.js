@@ -34,6 +34,18 @@ function parseFrontmatter(text) {
   return meta;
 }
 
+// 去掉 frontmatter，只留正文（编辑回填用）
+function stripFrontmatter(text) {
+  return String(text).replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '');
+}
+
+// 由 卷/order/标题 推算文件路径（与 publish 保持一致）
+function buildPath(volume, order, title) {
+  const slug = slugify(title);
+  return (volume ? 'content/' + volume : 'content') + '/' +
+    String(order).padStart(2, '0') + '-' + slug + '.md';
+}
+
 async function readArticles(env, limit) {
   const base = '/repos/' + env.GITHUB_OWNER + '/' + env.GITHUB_REPO;
   const treeRes = await gh(env, base + '/git/trees/' + env.GITHUB_BRANCH + '?recursive=1');
@@ -60,7 +72,8 @@ async function readArticles(env, limit) {
       title: meta.title || f.path,
       order: Number(meta.order) || 0,
       date: meta.date || '',
-      volume: meta.volume || ''
+      volume: meta.volume || '',
+      body: stripFrontmatter(text)
     });
   }
   return items;
@@ -146,4 +159,112 @@ export async function publish(env, req, body) {
     order: order,
     commitUrl: out.commit && out.commit.html_url
   });
+}
+
+// 编辑已发布文章：原地更新；若 卷/order/标题 变化导致路径变，则先建新文件再删旧文件（避免中途丢稿）
+export async function updateArticle(env, req, body) {
+  const guard = await requireAdmin(env, req);
+  if (guard.err) return guard.err;
+
+  const b = body || {};
+  const file = String(b.file || '').trim();
+  const title = String(b.title || '').trim();
+  const content = String(b.body || '');
+  if (!file) return json(env, req, { error: '缺少 file 路径' }, 400);
+  if (!title || !content.trim()) return json(env, req, { error: '标题和正文不能为空' }, 400);
+
+  const volume = String(b.volume || '').trim();
+  const date = String(b.date || new Date().toISOString().slice(0, 10));
+  const base = '/repos/' + env.GITHUB_OWNER + '/' + env.GITHUB_REPO;
+
+  // 读旧文件拿 sha，并从旧 frontmatter 兜底 order
+  const exist = await gh(env, base + '/contents/' + encodeURI(file) + '?ref=' + env.GITHUB_BRANCH);
+  if (!exist.ok) return json(env, req, { error: '文件不存在：' + file }, 404);
+  const ed = await exist.json().catch(function () { return {}; });
+  const oldSha = ed.sha;
+  let oldText = '';
+  try { oldText = base64ToUtf8(ed.content || ''); } catch (e) { oldText = ''; }
+  const oldMeta = parseFrontmatter(oldText);
+
+  let order = Number(b.order);
+  if (isNaN(order)) order = Number(oldMeta.order) || 0;
+
+  const md = '---\ntitle: ' + title + '\norder: ' + order + '\ndate: ' + date + '\nvolume: ' + volume + '\n---\n' +
+    content.replace(/\s*$/, '') + '\n';
+  const newPath = buildPath(volume, order, title);
+
+  // 路径没变：原地 PUT（带 sha）
+  if (newPath === file) {
+    const put = await gh(env, base + '/contents/' + encodeURI(file), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: '更新《' + title + '》',
+        content: utf8ToBase64(md),
+        sha: oldSha,
+        branch: env.GITHUB_BRANCH
+      })
+    });
+    const out = await put.json().catch(function () { return {}; });
+    if (!put.ok) return json(env, req, { error: '更新失败', status: put.status, detail: out.message || out }, 502);
+    return json(env, req, { ok: true, path: file, order: order, commitUrl: out.commit && out.commit.html_url });
+  }
+
+  // 路径变了：先建新（带旧内容兜底，若新路径已存在则带其 sha），成功后再删旧，避免中途丢稿
+  let newSha;
+  const newExist = await gh(env, base + '/contents/' + encodeURI(newPath) + '?ref=' + env.GITHUB_BRANCH);
+  if (newExist.ok) { const nd = await newExist.json().catch(function () { return {}; }); newSha = nd.sha; }
+
+  const put = await gh(env, base + '/contents/' + encodeURI(newPath), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({
+      message: '移动《' + title + '》→ ' + newPath,
+      content: utf8ToBase64(md),
+      branch: env.GITHUB_BRANCH
+    }, newSha ? { sha: newSha } : {}))
+  });
+  const putOut = await put.json().catch(function () { return {}; });
+  if (!put.ok) return json(env, req, { error: '写入新文件失败', status: put.status, detail: putOut.message || putOut }, 502);
+
+  const del = await gh(env, base + '/contents/' + encodeURI(file), {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: '删除旧文件《' + title + '》', sha: oldSha, branch: env.GITHUB_BRANCH })
+  });
+  const delOut = await del.json().catch(function () { return {}; });
+  if (!del.ok) return json(env, req, { error: '删除旧文件失败（新文件已写入）', status: del.status, detail: delOut.message || delOut }, 502);
+
+  return json(env, req, { ok: true, path: newPath, movedFrom: file, order: order, commitUrl: putOut.commit && putOut.commit.html_url });
+}
+
+// 删除已发布文章：删 GitHub 文件即触发 CI 自动重建下线
+export async function deleteArticle(env, req, body) {
+  const guard = await requireAdmin(env, req);
+  if (guard.err) return guard.err;
+
+  const file = String((body && body.file) || '').trim();
+  if (!file) return json(env, req, { error: '缺少 file 路径' }, 400);
+
+  const base = '/repos/' + env.GITHUB_OWNER + '/' + env.GITHUB_REPO;
+  const exist = await gh(env, base + '/contents/' + encodeURI(file) + '?ref=' + env.GITHUB_BRANCH);
+  if (!exist.ok) return json(env, req, { error: '文件不存在：' + file }, 404);
+  const ed = await exist.json().catch(function () { return {}; });
+  const sha = ed.sha;
+
+  let title = file;
+  try {
+    const t = base64ToUtf8(ed.content || '');
+    const m = parseFrontmatter(t);
+    if (m.title) title = m.title;
+  } catch (e) { /* 用文件名兜底 */ }
+
+  const del = await gh(env, base + '/contents/' + encodeURI(file), {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: '删除《' + title + '》', sha: sha, branch: env.GITHUB_BRANCH })
+  });
+  const out = await del.json().catch(function () { return {}; });
+  if (!del.ok) return json(env, req, { error: '删除失败', status: del.status, detail: out.message || out }, 502);
+  return json(env, req, { ok: true, file: file });
 }
