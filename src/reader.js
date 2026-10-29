@@ -1,7 +1,9 @@
 (function () {
   // 与 reader.css 中 .page 的内容区一致：700 - 左右padding(70*2)=560 宽；990 - 上下padding(64*2)=862 高
-  const PAGE_W = 560;
-  const PAGE_H = 862;
+  const PAGE_W = 560;      // 版心内容区宽（700 - 左右 padding 70×2）
+  const PAGE_H = 862;      // 版心内容区高（990 - 上下 padding 64×2）
+  const PAGE_W_FULL = 700; // 书页整体宽（显示与缩放用）
+  const PAGE_H_FULL = 990; // 书页整体高
 
   let pages = []; // pages[i] = { items:[DOM], volume, volumePage, globalPage }
   let current = 0;
@@ -14,6 +16,31 @@
   const pageEl = document.getElementById('page');
   const indicator = document.getElementById('page-indicator');
   const tocList = document.getElementById('toc-list');
+
+  // 书页自适应视口：版心设计尺寸固定 700×990（分页基准不变），按可用空间整体缩放，
+  // 避免窗口装不下时上下被裁切（缩放只影响显示，不影响分页结果）
+  function fitPage() {
+    const stage = document.getElementById('stage');
+    if (!stage || !pageEl) return;
+    const style = window.getComputedStyle(stage);
+    const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    const availW = stage.clientWidth - padX;
+    const availH = stage.clientHeight - padY;
+    if (availW <= 0 || availH <= 0) return;
+    const s = Math.min(1, availW / PAGE_W_FULL, availH / PAGE_H_FULL);
+    const scale = Math.max(0.45, s); // 太小就让它滚动，不再缩小
+
+    // 优先用 zoom（会重排，居中自然）；不支持的浏览器退化为 transform + 负 margin 抵消占位
+    pageEl.style.zoom = scale;
+    const h = pageEl.getBoundingClientRect().height;
+    if (Math.abs(h - PAGE_H_FULL * scale) > 4) {
+      pageEl.style.zoom = '';
+      pageEl.style.transformOrigin = 'center center';
+      pageEl.style.transform = 'scale(' + scale + ')';
+      pageEl.style.margin = (PAGE_H_FULL * (scale - 1) / 2) + 'px ' + (PAGE_W_FULL * (scale - 1) / 2) + 'px';
+    }
+  }
 
   // 给静态资源加版本戳，避免浏览器/CDN 缓存旧版（新增按钮、改样式后立刻生效）
   function v(url) {
@@ -202,6 +229,8 @@
         }
       }));
     } catch (e) { /* 批注层未加载时忽略 */ }
+
+    fitPage();
   }
 
   function buildToc(manifest) {
@@ -256,6 +285,7 @@
       else if (e.key === 'ArrowRight') showPage(current + 1);
       else if (e.key === 'Escape') closeToc();
     });
+    window.addEventListener('resize', fitPage);
   }
 
   function openToc() {
