@@ -1,24 +1,26 @@
 :root{
-  --paper:#f3ecdb;
-  --paper-edge:#e7dcc3;
-  --ink:#2f3b34;
-  --ink-soft:#52615a;
+  --paper:#fdfbf5;
+  --paper-edge:#efe9db;
+  --paper-deep:#f5f1e6;
+  --ink:#333b34;
+  --ink-soft:#5f6d63;
   --cinnabar:#9c4a36;
-  --rule:#cdbfa0;
+  --rule:#ddd6c5;
   --serif:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
 }
 *{box-sizing:border-box;}
 html,body{margin:0;height:100%;}
 body{
-  background:#d9cfb6;
-  background-image:radial-gradient(circle at 30% 15%, #efe7d4 0%, #d6ccb2 75%);
+  background:#f4f1e9;
+  background-image:radial-gradient(circle at 30% 15%, #faf8f2 0%, #f2eee5 75%);
   font-family:var(--serif);
   color:var(--ink);
 }
-#app{height:100vh;display:flex;flex-direction:column;}
+#app{height:100vh;display:flex;flex-direction:row;}
+#main{flex:1;min-width:0;display:flex;flex-direction:column;}
 #toolbar{
-  display:flex;align-items:center;gap:14px;justify-content:center;
-  padding:10px 14px;background:rgba(243,236,219,.92);
+  display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:wrap;
+  padding:10px 14px;background:rgba(253,251,245,.94);
   border-bottom:1px solid var(--rule);font-size:15px;flex:0 0 auto;
 }
 #toolbar button{
@@ -31,8 +33,8 @@ body{
 #stage{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:24px;}
 .page{
   width:700px;height:990px;background:var(--paper);
-  background-image:linear-gradient(180deg,#f6efde,#f1e8d2);
-  box-shadow:0 12px 44px rgba(60,45,20,.28),0 2px 6px rgba(0,0,0,.12);
+  background-image:linear-gradient(180deg,#fefcf8,#faf6ec);
+  box-shadow:0 10px 38px rgba(70,58,36,.16),0 1px 4px rgba(0,0,0,.06);
   border:1px solid var(--paper-edge);
   padding:64px 70px;overflow:hidden;position:relative;
 }
@@ -47,15 +49,29 @@ body{
 .page hr{border:none;border-top:1px solid var(--rule);margin:20px 0;}
 .page code{font-family:"SFMono-Regular",Consolas,monospace;background:rgba(0,0,0,.05);padding:1px 4px;border-radius:3px;font-size:14px;}
 .page ul,.page ol{font-size:17px;line-height:2.0;padding-left:2.4em;margin:0 0 14px;}
-.toc{position:fixed;top:0;right:0;height:100%;width:300px;background:var(--paper);box-shadow:-4px 0 22px rgba(0,0,0,.2);padding:30px 26px;overflow:auto;transform:translateX(100%);transition:transform .25s;z-index:20;}
-.toc.open{transform:translateX(0);}
-.toc h2{color:var(--cinnabar);margin-top:0;}
+/* 目录：左侧常驻栏（窄屏变抽屉） */
+.toc{
+  flex:0 0 252px;width:252px;height:100%;overflow:auto;
+  background:var(--paper-deep);border-right:1px solid var(--rule);
+  padding:24px 18px 40px;
+}
+.toc.collapsed{display:none;}
+.toc h2{color:var(--cinnabar);margin:0 0 4px;font-size:17px;letter-spacing:4px;}
+.toc-sub{color:var(--ink-soft);font-size:12px;margin:0 0 16px;letter-spacing:1px;}
 .toc ul{list-style:none;padding:0;margin:0;}
-.toc li{padding:11px 6px;border-bottom:1px solid var(--rule);cursor:pointer;font-size:15px;line-height:1.5;}
-.toc li:hover{color:var(--cinnabar);}
-.toc-vol{color:var(--cinnabar);font-weight:600;background:rgba(205,191,160,.18);border-bottom:none!important;padding:16px 6px 6px;letter-spacing:2px;cursor:default;}
-.toc-item{padding-left:18px;}
-.toc-mask{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:15;}
+.toc li{padding:10px 8px;border-bottom:1px solid var(--rule);cursor:pointer;font-size:15px;line-height:1.5;}
+.toc li:hover{color:var(--cinnabar);background:rgba(156,74,54,.05);}
+.toc li.cur{color:var(--cinnabar);font-weight:600;background:rgba(156,74,54,.08);}
+.toc-vol{color:var(--cinnabar);font-weight:600;background:transparent;border-bottom:1px solid var(--rule)!important;padding:16px 8px 6px;letter-spacing:2px;cursor:default;}
+.toc-vol:hover{background:transparent;color:var(--cinnabar);}
+.toc-item{padding-left:16px;}
+.toc-page{float:right;color:var(--ink-soft);font-size:12px;}
+.toc-mask{position:fixed;inset:0;background:rgba(0,0,0,.22);z-index:25;}
+@media (max-width:900px){
+  .toc{position:fixed;left:0;top:0;z-index:30;box-shadow:4px 0 22px rgba(60,45,20,.18);transform:translateX(-100%);transition:transform .25s;}
+  .toc.open{transform:translateX(0);}
+  .toc.collapsed{display:block;}
+}
 .hidden{display:none!important;}
 #print-book{display:none;}
 

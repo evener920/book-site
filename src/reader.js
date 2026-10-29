@@ -96,6 +96,7 @@
       await buildFromMeasure(manifest);
     }
 
+    initToc();
     buildToc(manifest);
     current = parseInt(localStorage.getItem('book-page') || '0', 10) || 0;
     showPage(current);
@@ -230,6 +231,7 @@
       }));
     } catch (e) { /* 批注层未加载时忽略 */ }
 
+    syncTocCurrent();
     fitPage();
   }
 
@@ -241,10 +243,18 @@
     function addItem(a) {
       const li = document.createElement('li');
       li.className = 'toc-item';
-      li.textContent = a.title;
+      li.dataset.title = a.title;
+      const span = document.createElement('span');
+      span.textContent = a.title;
+      li.appendChild(span);
+      const pn = document.createElement('span');
+      pn.className = 'toc-page';
+      const st = articleStart[a.title];
+      pn.textContent = st != null ? ('p' + (st + 1)) : '';
+      li.appendChild(pn);
       li.onclick = function () {
-        closeToc();
-        showPage(articleStart[a.title] != null ? articleStart[a.title] : 0);
+        if (isNarrow()) closeToc();
+        showPage(st != null ? st : 0);
       };
       tocList.appendChild(li);
     }
@@ -268,12 +278,64 @@
       }
       rest.forEach(addItem);
     }
+
+    const cnt = document.getElementById('toc-count');
+    if (cnt) cnt.textContent = '共 ' + articles.length + ' 篇';
+    syncTocCurrent();
+  }
+
+  // 左侧目录：高亮当前所在篇
+  function syncTocCurrent() {
+    if (!tocList) return;
+    let curTitle = null;
+    Object.keys(articleStart).forEach(function (t) {
+      const st = articleStart[t];
+      if (st == null || st > current) return;
+      if (curTitle == null || articleStart[curTitle] <= st) curTitle = t;
+    });
+    const items = tocList.querySelectorAll('.toc-item');
+    for (let i = 0; i < items.length; i++) {
+      items[i].classList.toggle('cur', items[i].dataset.title === curTitle);
+    }
+  }
+
+  function isNarrow() { return window.innerWidth < 900; }
+
+  function toggleToc() {
+    const toc = document.getElementById('toc');
+    if (!toc) return;
+    if (isNarrow()) {
+      const open = toc.classList.toggle('open');
+      document.getElementById('toc-mask').classList.toggle('hidden', !open);
+    } else {
+      const collapsed = toc.classList.toggle('collapsed');
+      localStorage.setItem('book-toc', collapsed ? '0' : '1');
+    }
+    fitPage();
+  }
+
+  function closeToc() {
+    const toc = document.getElementById('toc');
+    if (!toc) return;
+    if (isNarrow()) {
+      toc.classList.remove('open');
+      document.getElementById('toc-mask').classList.add('hidden');
+    } else {
+      toc.classList.add('collapsed');
+      localStorage.setItem('book-toc', '0');
+    }
+    fitPage();
+  }
+
+  function initToc() {
+    const toc = document.getElementById('toc');
+    if (toc && !isNarrow() && localStorage.getItem('book-toc') === '0') toc.classList.add('collapsed');
   }
 
   function bindEvents() {
     document.getElementById('btn-prev').onclick = function () { showPage(current - 1); };
     document.getElementById('btn-next').onclick = function () { showPage(current + 1); };
-    document.getElementById('btn-toc').onclick = openToc;
+    document.getElementById('btn-toc').onclick = toggleToc;
     document.getElementById('btn-print').onclick = function () { buildPrintBook(); window.print(); };
     const pdfBtn = document.getElementById('btn-pdf');
     if (pdfBtn) pdfBtn.onclick = function () { window.location.href = './book.pdf'; };
@@ -284,18 +346,9 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowLeft') showPage(current - 1);
       else if (e.key === 'ArrowRight') showPage(current + 1);
-      else if (e.key === 'Escape') closeToc();
+      else if (e.key === 'Escape' && isNarrow()) closeToc();
     });
-    window.addEventListener('resize', fitPage);
-  }
-
-  function openToc() {
-    document.getElementById('toc').classList.add('open');
-    document.getElementById('toc-mask').classList.remove('hidden');
-  }
-  function closeToc() {
-    document.getElementById('toc').classList.remove('open');
-    document.getElementById('toc-mask').classList.add('hidden');
+    window.addEventListener('resize', function () { initToc(); fitPage(); });
   }
 
   // 构建整本打印 DOM（供浏览器打印与 Playwright 导出 PDF 共用）
