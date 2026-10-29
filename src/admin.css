@@ -49,6 +49,9 @@
 .mini{font-family:var(--serif);font-size:12px;padding:4px 12px;border-radius:4px;cursor:pointer;background:transparent;border:1px solid var(--rule);color:var(--ink);}
 .mini:hover{opacity:.85;}
 .mini.del{color:var(--cinnabar);border-color:var(--cinnabar);}
+.mini.ins{background:var(--cinnabar);color:#f7f2e4;border-color:var(--cinnabar);}
+.mini.ins:hover{opacity:.9;}
+.card .hint{font-size:13px;color:var(--ink-soft);margin:0 0 12px;line-height:1.7;}
 
 /* ── 富文本编辑器 ── */
 .rte{border:1px solid var(--rule);border-radius:4px;overflow:hidden;background:#fbf7ec;}

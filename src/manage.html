@@ -38,6 +38,7 @@
 
     <div class="card hidden" id="list-card">
       <h2>已发布内容</h2>
+      <p class="hint">点某篇的「在此后插入」，会自动算出落点并跳到写书页，写好正文即插入到中间。</p>
       <ul class="list" id="art-list"></ul>
     </div>
 
@@ -93,6 +94,7 @@
 
     const byFile = {};      // file → 文章对象
     let editingFile = null; // 正在编辑的文件路径
+    let sortedArts = [];    // 按 order 排序的文章数组（用于「在此后插入」计算中间 order）
 
     async function call(method, path, body) {
       const r = await fetch(API + path, {
@@ -151,14 +153,16 @@
       $('vol-list').innerHTML = vols.map(function (v) { return '<option value="' + esc(v) + '">'; }).join('');
       for (const k in byFile) delete byFile[k];
       articles.forEach(function (a) { byFile[a.file] = a; });
-      $('art-list').innerHTML = articles.slice().sort(function (a, b) {
+      sortedArts = articles.slice().sort(function (a, b) {
         return a.order - b.order || a.file.localeCompare(b.file);
-      }).map(function (a) {
-        return '<li data-file="' + esc(a.file) + '">' +
+      });
+      $('art-list').innerHTML = sortedArts.map(function (a, i) {
+        return '<li data-file="' + esc(a.file) + '" data-i="' + i + '">' +
           '<span class="ord">' + esc(a.order) + '</span>' +
           '<span class="ttl">' + esc(a.title) + '</span>' +
           '<span class="vol">' + esc(a.volume || '') + ' · ' + esc(a.date || '') + '</span>' +
           '<span class="acts">' +
+          '<button type="button" class="mini ins insert-btn" title="在这篇之后插入新页面">＋ 在此后插入</button>' +
           '<button type="button" class="mini edit-btn">编辑</button>' +
           '<button type="button" class="mini del del-btn">删除</button>' +
           '</span></li>';
@@ -189,6 +193,22 @@
       $('body').value = '';
       $('edit-card').classList.add('hidden');
       setStatus('edit-status', '');
+    }
+
+    // 在指定文章之后插入新页：算出落在中间的小数 order，跳到写书页预填
+    function insertAfter(i) {
+      i = Number(i);
+      const cur = sortedArts[i];
+      if (!cur) return;
+      const next = sortedArts[i + 1];
+      const newOrder = next
+        ? Math.round((cur.order + next.order) / 2 * 1000) / 1000
+        : cur.order + 1;
+      const params = new URLSearchParams();
+      params.set('after', newOrder);
+      if (cur.volume) params.set('volume', cur.volume);
+      params.set('afterTitle', cur.title);
+      location.href = './admin.html?' + params.toString();
     }
 
     async function deleteArticle(file) {
@@ -247,6 +267,7 @@
       if (!file) return;
       if (btn.classList.contains('edit-btn')) editArticle(file);
       else if (btn.classList.contains('del-btn')) deleteArticle(file);
+      else if (btn.classList.contains('insert-btn')) insertAfter(li.getAttribute('data-i'));
     });
 
     if (!API) {
