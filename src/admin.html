@@ -72,11 +72,11 @@
             <button type="button" data-cmd="ul" title="无序列表">• 列表</button>
             <button type="button" data-cmd="ol" title="编号条目（会作为大纲标题）">1. 大纲</button>
             <span class="sep"></span>
-            <button type="button" data-cmd="anno" title="高亮划线批注（背景高亮+下划线）">🖍 批注</button>
+            <button type="button" data-cmd="wave" title="波浪线批注（文字下方加波浪线，可换色）">〰 波浪</button>
             <span class="anno-colors" id="anno-colors">
-              <button type="button" class="swatch" data-color="#fde68a" title="黄色高亮" style="background:#fde68a"></button>
-              <button type="button" class="swatch" data-color="#bbf7d0" title="绿色高亮" style="background:#bbf7d0"></button>
-              <button type="button" class="swatch on" data-color="#fbcfe8" title="粉色高亮" style="background:#fbcfe8"></button>
+              <button type="button" class="swatch" data-color="#e11d48" title="红色波浪线" style="background:#e11d48"></button>
+              <button type="button" class="swatch" data-color="#2563eb" title="蓝色波浪线" style="background:#2563eb"></button>
+              <button type="button" class="swatch on" data-color="#16a34a" title="绿色波浪线" style="background:#16a34a"></button>
             </span>
             <span class="sep"></span>
             <button type="button" data-cmd="link" title="插入链接">🔗 链接</button>
@@ -184,7 +184,7 @@
           // 保留批注样式（高亮背景 + 下划线）为内联 HTML，reader 端 marked 已开 html:true 渲染
           const style = c.getAttribute('style') || '';
           const cls = c.getAttribute('class') || '';
-          if (/background|text-decoration/i.test(style) || /(^|\s)(anno|mark)(\s|$)/i.test(cls)) {
+          if (/background|text-decoration/i.test(style) || /(^|\s)(anno|mark|wave)(\s|$)/i.test(cls)) {
             s += '<span' + (cls ? ' class="' + cls + '"' : '') + (style ? ' style="' + style + '"' : '') + '>' + inner + '</span>';
           } else {
             s += inner;
@@ -239,15 +239,16 @@
     function initRte() {
       const ed = $('rte');
       if (!ed) return;
-      let annoColor = '#fbcfe8'; // 默认粉色高亮，对应图中实际效果
-      function wrapAnno(color) {
+      let waveColor = '#16a34a'; // 默认绿色波浪线
+      function wrapWave(color) {
         const sel = window.getSelection();
         if (!sel || !sel.rangeCount || sel.isCollapsed) return false;
         const range = sel.getRangeAt(0);
         const span = document.createElement('span');
-        span.className = 'anno';
-        span.style.backgroundColor = color;
-        span.style.textDecoration = 'underline';
+        span.className = 'wave';
+        span.style.textDecorationLine = 'underline';
+        span.style.textDecorationStyle = 'wavy';
+        span.style.textDecorationColor = color;
         try { range.surroundContents(span); }
         catch (e) {
           const frag = range.extractContents();
@@ -266,11 +267,11 @@
         if (!btn) return;
         e.preventDefault();
         ed.focus();
-        // 色块：切换高亮色；若已选中文字则直接改其背景
+        // 色块：切换波浪线颜色；若已选中文字则直接改其波浪线色
         if (btn.classList.contains('swatch')) {
           const color = btn.getAttribute('data-color');
-          annoColor = color;
-          wrapAnno(color);
+          waveColor = color;
+          wrapWave(color);
           document.querySelectorAll('#anno-colors .swatch').forEach(function (s) { s.classList.remove('on'); });
           btn.classList.add('on');
           syncMd();
@@ -290,9 +291,9 @@
           const url = window.prompt('链接地址（留空取消）', 'https://');
           if (url) document.execCommand('createLink', false, url);
         }
-        else if (cmd === 'anno') {
-          // 高亮划线批注：背景高亮 + 下划线
-          wrapAnno(annoColor);
+        else if (cmd === 'wave') {
+          // 波浪线批注：文字下方加波浪线（颜色由当前色块决定）
+          wrapWave(waveColor);
         }
         else if (cmd === 'clear') document.execCommand('removeFormat');
         syncMd();
