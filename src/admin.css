@@ -49,3 +49,22 @@
 .mini{font-family:var(--serif);font-size:12px;padding:4px 12px;border-radius:4px;cursor:pointer;background:transparent;border:1px solid var(--rule);color:var(--ink);}
 .mini:hover{opacity:.85;}
 .mini.del{color:var(--cinnabar);border-color:var(--cinnabar);}
+
+/* ── 富文本编辑器 ── */
+.rte{border:1px solid var(--rule);border-radius:4px;overflow:hidden;background:#fbf7ec;}
+.rte-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:8px 10px;border-bottom:1px solid var(--rule);background:#f3ecdb;}
+.rte-toolbar button{font-family:var(--serif);font-size:13px;line-height:1;padding:6px 10px;border:1px solid var(--rule);background:#fbf7ec;border-radius:4px;cursor:pointer;color:var(--ink);}
+.rte-toolbar button:hover{background:#efe6d2;}
+.rte-toolbar .sep{width:1px;align-self:stretch;background:var(--rule);margin:2px 4px;}
+.rte-editor{min-height:340px;max-height:60vh;overflow-y:auto;padding:16px 18px;font-family:var(--serif);font-size:16px;line-height:2.0;color:var(--ink);outline:none;}
+.rte-editor:empty:before{content:attr(data-placeholder);color:var(--ink-soft);}
+.rte-editor h2{font-size:21px;font-weight:700;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--rule);}
+.rte-editor h3{font-size:18px;font-weight:600;color:var(--cinnabar);margin:14px 0 8px;}
+.rte-editor blockquote{border-left:3px solid var(--cinnabar);margin:10px 0;padding:4px 12px;color:var(--ink-soft);}
+.rte-editor pre{background:#efe6d2;border-radius:4px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;white-space:pre-wrap;overflow-x:auto;margin:10px 0;}
+.rte-editor code{background:#efe6d2;border-radius:3px;padding:1px 5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;}
+.rte-editor ul,.rte-editor ol{margin:8px 0;padding-left:26px;}
+.rte-editor a{color:var(--cinnabar);}
+.rte-src{margin-top:8px;}
+.rte-src summary{cursor:pointer;color:var(--ink-soft);font-size:13px;user-select:none;}
+.rte-src pre{max-height:220px;overflow:auto;background:#f3ecdb;border:1px solid var(--rule);border-radius:4px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;white-space:pre-wrap;color:var(--ink);}

@@ -59,8 +59,30 @@
         </div>
       </div>
       <div class="field">
-        <label>正文（Markdown）</label>
-        <textarea id="body" placeholder="道冲而用之或不盈……"></textarea>
+        <label>正文（富文本 · 自动存为 Markdown）</label>
+        <div class="rte">
+          <div class="rte-toolbar" id="rte-toolbar">
+            <button type="button" data-cmd="h2" title="一级标题">标题1</button>
+            <button type="button" data-cmd="h3" title="二级标题">标题2</button>
+            <span class="sep"></span>
+            <button type="button" data-cmd="bold" title="加粗"><b>B</b></button>
+            <button type="button" data-cmd="italic" title="斜体"><i>I</i></button>
+            <span class="sep"></span>
+            <button type="button" data-cmd="quote" title="引用">❝ 引用</button>
+            <button type="button" data-cmd="ul" title="无序列表">• 列表</button>
+            <button type="button" data-cmd="ol" title="编号条目（会作为大纲标题）">1. 大纲</button>
+            <span class="sep"></span>
+            <button type="button" data-cmd="link" title="插入链接">🔗 链接</button>
+            <button type="button" data-cmd="code" title="代码块">{'</>'} 代码</button>
+            <button type="button" data-cmd="hr" title="分隔线">― 分隔</button>
+            <button type="button" data-cmd="clear" title="清除格式">清除</button>
+          </div>
+          <div class="rte-editor" id="rte" contenteditable="true" data-placeholder="在这里写正文，用上方工具栏加格式。发布时会自动转成 Markdown。"></div>
+        </div>
+        <details class="rte-src">
+          <summary>查看 Markdown 源码</summary>
+          <pre id="md-src"></pre>
+        </details>
       </div>
       <button class="btn" id="btn-publish">发布到书末</button>
       <button class="btn ghost" id="btn-logout">退出</button>
@@ -138,10 +160,107 @@
       }
     }
 
+    /* ── 富文本编辑器：HTML → Markdown 转换（存进后端，与现有 pipeline 兼容） ── */
+    function inlineMd(node) {
+      let s = '';
+      node.childNodes.forEach(function (c) {
+        if (c.nodeType === 3) { s += c.textContent; return; }
+        if (c.nodeType !== 1) return;
+        const t = c.tagName.toLowerCase();
+        const inner = inlineMd(c);
+        if (t === 'strong' || t === 'b') s += '**' + inner + '**';
+        else if (t === 'em' || t === 'i') s += '*' + inner + '*';
+        else if (t === 'code') s += '`' + inner + '`';
+        else if (t === 'a') s += '[' + inner + '](' + (c.getAttribute('href') || '') + ')';
+        else if (t === 'br') s += '\n';
+        else s += inner;
+      });
+      return s;
+    }
+
+    function htmlToMarkdown(root) {
+      const lines = [];
+      function walk(node, prefix) {
+        prefix = prefix || '';
+        node.childNodes.forEach(function (c) {
+          if (c.nodeType === 3) {
+            const txt = c.textContent.replace(/[ \t]+/g, ' ').replace(/\n+/g, ' ').trim();
+            if (txt) lines.push(prefix + txt);
+            return;
+          }
+          if (c.nodeType !== 1) return;
+          const t = c.tagName.toLowerCase();
+          if (t === 'h2') lines.push('## ' + inlineMd(c).trim());
+          else if (t === 'h3') lines.push('### ' + inlineMd(c).trim());
+          else if (t === 'h1' || t === 'h4' || t === 'h5' || t === 'h6') lines.push('## ' + inlineMd(c).trim());
+          else if (t === 'blockquote') walk(c, '> ');
+          else if (t === 'ul') {
+            c.querySelectorAll(':scope > li').forEach(function (li) { lines.push(prefix + '- ' + inlineMd(li).trim()); });
+          }
+          else if (t === 'ol') {
+            let i = 1;
+            c.querySelectorAll(':scope > li').forEach(function (li) { lines.push(prefix + (i++) + '. ' + inlineMd(li).trim()); });
+          }
+          else if (t === 'pre') lines.push('```\n' + c.textContent.replace(/\n$/, '') + '\n```');
+          else if (t === 'hr') lines.push('---');
+          else if (t === 'br') lines.push('');
+          else if (t === 'p' || t === 'div') {
+            const txt = inlineMd(c).replace(/[ \t]+/g, ' ').trim();
+            if (txt) lines.push(prefix + txt);
+          }
+        });
+      }
+      walk(root, '');
+      return lines.join('\n');
+    }
+
+    function syncMd() {
+      const ed = $('rte'), pre = $('md-src');
+      if (ed && pre) pre.textContent = htmlToMarkdown(ed);
+    }
+
+    function initRte() {
+      const ed = $('rte');
+      if (!ed) return;
+      $('rte-toolbar').addEventListener('click', function (e) {
+        const btn = e.target.closest('button[data-cmd]');
+        if (!btn) return;
+        e.preventDefault();
+        ed.focus();
+        const cmd = btn.getAttribute('data-cmd');
+        if (cmd === 'h2') document.execCommand('formatBlock', false, 'h2');
+        else if (cmd === 'h3') document.execCommand('formatBlock', false, 'h3');
+        else if (cmd === 'bold') document.execCommand('bold');
+        else if (cmd === 'italic') document.execCommand('italic');
+        else if (cmd === 'ul') document.execCommand('insertUnorderedList');
+        else if (cmd === 'ol') document.execCommand('insertOrderedList');
+        else if (cmd === 'quote') document.execCommand('formatBlock', false, 'blockquote');
+        else if (cmd === 'hr') document.execCommand('insertHorizontalRule');
+        else if (cmd === 'code') document.execCommand('insertHTML', false, '<pre><code>\n\n</code></pre>');
+        else if (cmd === 'link') {
+          const url = window.prompt('链接地址（留空取消）', 'https://');
+          if (url) document.execCommand('createLink', false, url);
+        }
+        else if (cmd === 'clear') document.execCommand('removeFormat');
+        syncMd();
+      });
+      // 粘贴纯文本，避免带进来脏 HTML/样式
+      ed.addEventListener('paste', function (e) {
+        e.preventDefault();
+        const txt = (e.clipboardData || window.clipboardData).getData('text/plain');
+        document.execCommand('insertText', false, txt);
+      });
+      ed.addEventListener('input', function () {
+        if (!ed.textContent.trim()) ed.innerHTML = '';
+        syncMd();
+      });
+      syncMd();
+    }
+
     async function publish() {
       const title = $('title').value.trim();
-      const body = $('body').value;
-      if (!title || !body.trim()) { setStatus('pub-status', '标题和正文不能为空'); return; }
+      const body = htmlToMarkdown($('rte')).trim();
+      if (!title || !body) { setStatus('pub-status', '标题和正文不能为空'); return; }
       const orderRaw = $('order').value.trim();
       const payload = {
         title: title,
@@ -157,7 +276,8 @@
           (d.commitUrl ? ' · <a href="' + d.commitUrl + '" target="_blank">查看提交</a>' : '') +
           '<br>Cloudflare Pages 会在一分钟内自动重建并上线。');
         $('title').value = '';
-        $('body').value = '';
+        $('rte').innerHTML = '';
+        $('md-src').textContent = '';
         $('order').value = '';
       } else {
         setStatus('pub-status', '✗ ' + (d.error || '发布失败') + (d.detail ? '<br>' + JSON.stringify(d.detail) : ''));
@@ -168,6 +288,7 @@
     $('btn-reg').onclick = function () { authReq('/api/auth/register'); };
     $('btn-logout').onclick = logout;
     $('btn-publish').onclick = publish;
+    initRte();
 
     if (!API) {
       setStatus('login-status', '未配置 API 地址：构建时请设置环境变量 BOOK_API');
