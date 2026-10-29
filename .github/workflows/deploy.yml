@@ -1,0 +1,49 @@
+name: 构建并部署网页书
+
+# 触发方式：
+#   1. 后台发布 / 本地 push 到 main → 自动重建上线
+#   2. GitHub 仓库页面手动点 Run workflow
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # 没配 Cloudflare 凭据就跳过，避免红叉（配好 secret 后自动生效）
+    if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # 精确分页与 PDF 导出依赖真实浏览器（Pages 构建环境没有，所以在 Actions 里跑）
+      - name: 安装 Playwright Chromium
+        run: |
+          npm i -D playwright-core@1.49.1
+          npx --yes playwright@1.49.1 install --with-deps chromium
+
+      - name: 构建（Markdown → manifest + 静态资源）
+        run: node build.js
+        env:
+          # 前端要连的 Worker API 地址；改这里就能换后端
+          BOOK_API: ${{ secrets.BOOK_API || 'https://book-site-api.evener920.workers.dev' }}
+
+      - name: 精确分页（浏览器测量 → pages.json）
+        run: node tools/paginate.js
+
+      - name: 导出 PDF（→ dist/book.pdf）
+        run: node tools/export-pdf.js
+
+      - name: 部署到 Cloudflare Pages
+        run: npx --yes wrangler@4 pages deploy dist --project-name=book-site --branch=production --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || '82129ffe005dfd5010505adf73de06cb' }}

@@ -30,12 +30,23 @@ function serve(dir) {
   });
 }
 
-// 兼容两种安装位置：优先本地 node_modules，回退 workbuddy 内置 playwright-cli
+// 兼容多种安装位置：环境变量 > 本地 node_modules > 全局 npm > 内置 playwright-cli
 function getChromium() {
-  try { return require('playwright-core').chromium; }
-  catch (e) {
-    return require('/Users/evener920/.workbuddy/binaries/node/versions/22.22.2-6/lib/node_modules/@playwright/cli/node_modules/playwright-core').chromium;
+  const candidates = [];
+  if (process.env.PLAYWRIGHT_CORE_PATH) candidates.push(process.env.PLAYWRIGHT_CORE_PATH);
+  candidates.push('playwright-core');
+  candidates.push('playwright');
+  try {
+    const root = require('child_process').execSync('npm root -g', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().trim();
+    if (root) candidates.push(require('path').join(root, '@playwright/cli/node_modules/playwright-core'));
+  } catch (e) { /* 忽略 */ }
+  candidates.push('/Users/evener920/.workbuddy/binaries/node/versions/22.22.2-6/lib/node_modules/@playwright/cli/node_modules/playwright-core');
+
+  for (let i = 0; i < candidates.length; i++) {
+    try { return require(candidates[i]).chromium; } catch (e) { /* 继续尝试 */ }
   }
+  throw new Error('未找到 playwright-core。请 npm i -D playwright-core && npx playwright install chromium，或设置 PLAYWRIGHT_CORE_PATH 指向它。');
 }
 
 module.exports = { serve: serve, getChromium: getChromium };

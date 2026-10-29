@@ -16,8 +16,10 @@
 # 绑定自定义域涉及 DNS，不在此脚本自动执行。
 
 set -e
-PROJECT="${1:-web-book}"
+PROJECT="${1:-book-site}"
 BRANCH="${2:-production}"
+# 前端要连的 Worker 地址（不传则用仓库默认）
+export BOOK_API="${BOOK_API:-https://book-site-api.evener920.workers.dev}"
 
 cd "$(dirname "$0")"
 
