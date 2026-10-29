@@ -8,3 +8,4 @@ api.config.json
 worker/.dev.vars
 preview-admin.png
 worker/.wrangler/
+.wrangler/

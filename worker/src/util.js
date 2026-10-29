@@ -5,7 +5,13 @@ export function corsHeaders(env, req) {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS'
   };
-  if (origin && (allowed.indexOf('*') !== -1 || allowed.indexOf(origin) !== -1)) {
+  // 白名单精确匹配；Cloudflare 自家 pages.dev / workers.dev 一律放行（换域名不用改配置）
+  const ok = origin && (
+    allowed.indexOf('*') !== -1 ||
+    allowed.indexOf(origin) !== -1 ||
+    /\.(pages|workers)\.dev$/.test(origin)
+  );
+  if (ok) {
     h['Access-Control-Allow-Origin'] = origin;
     h['Vary'] = 'Origin';
   }
