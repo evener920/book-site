@@ -31,6 +31,11 @@ const distDir = path.join(root, 'dist');
   await page.evaluate(function () { return window.__buildPrintBook(); });
   await page.emulateMedia({ media: 'print' });
 
+  // 确保中文字体就绪并嵌入 PDF（CI 已安装 fonts-noto-cjk；系统字体同步可用，这里等待 web/系统字体加载完成以防嵌入缺失）
+  await page.evaluate(async function () {
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+  });
+
   const pdfPath = path.join(distDir, 'book.pdf');
   await page.pdf({
     path: pdfPath,

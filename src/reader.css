@@ -6,7 +6,7 @@
   --ink-soft:#5f6d63;
   --cinnabar:#9c4a36;
   --rule:#ddd6c5;
-  --serif:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
+  --serif:"Noto Serif SC","Noto Serif CJK SC","Songti SC","STSong","SimSun",serif;
 }
 *{box-sizing:border-box;}
 html,body{margin:0;height:100%;}

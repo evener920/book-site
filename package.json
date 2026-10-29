@@ -9,5 +9,8 @@
     "pdf": "node tools/export-pdf.js",
     "all": "node build.js && node tools/paginate.js && node tools/export-pdf.js",
     "serve": "python3 -m http.server 8123 --directory dist"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.49.1"
   }
 }

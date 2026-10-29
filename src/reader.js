@@ -458,7 +458,7 @@
     document.getElementById('btn-toc').onclick = toggleToc;
     document.getElementById('btn-print').onclick = function () { buildPrintBook(); window.print(); };
     const pdfBtn = document.getElementById('btn-pdf');
-    if (pdfBtn) pdfBtn.onclick = function () { window.location.href = './book.pdf'; };
+    if (pdfBtn) pdfBtn.onclick = function () { window.location.href = v('./book.pdf'); };
     const adminBtn = document.getElementById('btn-admin');
     // Pages 会把 /admin.html 308 跳到 /admin，直接指过去省一次跳转
     if (adminBtn) adminBtn.onclick = function () { window.location.href = v('./admin'); };
