@@ -59,6 +59,12 @@
         </div>
       </div>
       <div class="field">
+        <label>插入位置（选「某篇之后」即在中间插入；留空 = 书末）</label>
+        <select id="insert-pos" style="width:100%;font-family:var(--serif);font-size:15px;border:1px solid var(--rule);border-radius:4px;background:#fbf7ec;color:var(--ink);padding:8px 10px;box-sizing:border-box;">
+          <option value="">书末（默认，接在最后）</option>
+        </select>
+      </div>
+      <div class="field">
         <label>正文（富文本 · 自动存为 Markdown）</label>
         <div class="rte">
           <div class="rte-toolbar" id="rte-toolbar">
@@ -160,16 +166,47 @@
       $('who').textContent = '已登录 ' + user;
       $('date').value = new Date().toISOString().slice(0, 10);
       setStatus('login-status', '');
-      // 拉卷名候选 + 建议 order（用于默认落书末）
+      // 拉卷名候选 + 文章列表（用于「插入位置」下拉与默认落书末）
       const d = await call('GET', '/api/articles');
       if (!d.error && (d.articles || []).length) {
         const vols = [];
         d.articles.forEach(function (a) { if (a.volume && vols.indexOf(a.volume) === -1) vols.push(a.volume); });
         $('vol-list').innerHTML = vols.map(function (v) { return '<option value="' + esc(v) + '">'; }).join('');
         $('order').placeholder = '自动（建议 ' + d.suggestedOrder + '）';
+        populateInsertPos(d.articles);
       }
       // 「已有内容」页点「在此后插入」跳转过来时，URL 带 after/volume/afterTitle，预填插入位置
       applyInsertParam();
+    }
+
+    // 填充「插入位置」下拉：选「某篇之后」自动算出落中间的小数 order
+    function populateInsertPos(arts) {
+      const sorted = (arts || []).slice().sort(function (a, b) { return a.order - b.order; });
+      const sel = $('insert-pos');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">书末（默认，接在最后）</option>';
+      // 书首：仅当第一篇 order>0 时提供（凡例=0 时保持最前，不提供）
+      if (sorted.length && sorted[0].order > 0) {
+        const o = document.createElement('option');
+        o.value = Math.round((sorted[0].order - 1) * 1000) / 1000;
+        o.textContent = '插到书的最前面';
+        sel.appendChild(o);
+      }
+      sorted.forEach(function (cur, i) {
+        const next = sorted[i + 1];
+        const newOrder = next
+          ? Math.round((cur.order + next.order) / 2 * 1000) / 1000
+          : cur.order + 1;
+        const o = document.createElement('option');
+        o.value = newOrder;
+        o.textContent = '插入到《' + cur.title + '》之后';
+        sel.appendChild(o);
+      });
+      sel.onchange = function () {
+        const v = sel.value;
+        if (v === '') { $('order').value = ''; setStatus('insert-hint', ''); }
+        else { $('order').value = v; }
+      };
     }
 
     // 从 URL 预填“插入到某篇之后”：?after=<order>&volume=<卷>&afterTitle=<标题>
@@ -179,6 +216,8 @@
       if (!after) return;
       const newOrder = Number(after);
       $('order').value = newOrder;
+      const pos = $('insert-pos');
+      if (pos && pos.querySelector('option[value="' + newOrder + '"]')) pos.value = newOrder;
       const vol = q.get('volume');
       if (vol) $('volume').value = vol;
       const afterTitle = q.get('afterTitle') || '所选位置';
