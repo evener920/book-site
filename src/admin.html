@@ -78,15 +78,6 @@
             <button type="button" data-cmd="ul" title="无序列表">• 列表</button>
             <button type="button" data-cmd="ol" title="编号条目（会作为大纲标题）">1. 大纲</button>
             <span class="sep"></span>
-            <button type="button" data-cmd="hl" title="高亮（文字加背景色块）">🔆 高亮</button>
-            <button type="button" data-cmd="uline" title="划线（文字下方加直线下划线）">▁ 划线</button>
-            <button type="button" data-cmd="wave" title="波浪线（文字下方加波浪下划线）">〰 波浪</button>
-            <span class="anno-colors" id="anno-colors">
-              <button type="button" class="swatch on" data-color="#f7ecc9" title="米黄（高亮默认色）" style="background:#f7ecc9"></button>
-              <button type="button" class="swatch" data-color="#d9ecd2" title="浅绿" style="background:#d9ecd2"></button>
-              <button type="button" class="swatch" data-color="#f8dce6" title="浅粉" style="background:#f8dce6"></button>
-            </span>
-            <span class="sep"></span>
             <button type="button" data-cmd="link" title="插入链接">🔗 链接</button>
             <button type="button" data-cmd="code" title="代码块">{'</>'} 代码</button>
             <button type="button" data-cmd="hr" title="分隔线">― 分隔</button>
@@ -296,43 +287,6 @@
     function initRte() {
       const ed = $('rte');
       if (!ed) return;
-      let annoColor = '#f7ecc9'; // 当前色块颜色（米黄，柔和阅读批注风）
-      let curKind = 'wave';       // 最近一次批注模式：hl / uline / wave
-      // 柔和阅读批注配色：高亮用浅色底，划线/波浪用同色系更深一档的线色（白底上能看清，但不刺眼）
-      const ANNO = {
-        '#f7ecc9': { bg: '#f7ecc9', line: '#cd9b3e' }, // 米黄
-        '#d9ecd2': { bg: '#d9ecd2', line: '#4f9e6b' }, // 浅绿
-        '#f8dce6': { bg: '#f8dce6', line: '#d76b94' }  // 浅粉
-      };
-      // 把选中文字包成批注 span：高亮(背景) / 划线(直线) / 波浪(波浪线)
-      function wrapAnno(kind, color) {
-        const sel = window.getSelection();
-        if (!sel || !sel.rangeCount || sel.isCollapsed) return false;
-        const range = sel.getRangeAt(0);
-        const a = ANNO[color] || { bg: color, line: color };
-        const span = document.createElement('span');
-        if (kind === 'hl') {
-          span.className = 'hl';
-          span.style.backgroundColor = a.bg;
-        } else if (kind === 'uline') {
-          span.className = 'uline';
-          span.style.textDecorationLine = 'underline';
-          span.style.textDecorationColor = a.line;
-        } else { // wave
-          span.className = 'wave';
-          span.style.textDecorationLine = 'underline';
-          span.style.textDecorationStyle = 'wavy';
-          span.style.textDecorationColor = a.line;
-        }
-        try { range.surroundContents(span); }
-        catch (e) {
-          const frag = range.extractContents();
-          span.appendChild(frag);
-          range.insertNode(span);
-        }
-        sel.removeAllRanges();
-        return true;
-      }
       // 点工具栏按钮时不抢焦点，保住当前文字选区
       $('rte-toolbar').addEventListener('mousedown', function (e) {
         if (e.target.closest('button')) e.preventDefault();
@@ -342,16 +296,6 @@
         if (!btn) return;
         e.preventDefault();
         ed.focus();
-        // 色块：切换颜色；若已选中文字则按当前模式即时上色
-        if (btn.classList.contains('swatch')) {
-          const color = btn.getAttribute('data-color');
-          annoColor = color;
-          wrapAnno(curKind, color);
-          document.querySelectorAll('#anno-colors .swatch').forEach(function (s) { s.classList.remove('on'); });
-          btn.classList.add('on');
-          syncMd();
-          return;
-        }
         const cmd = btn.getAttribute('data-cmd');
         if (cmd === 'h2') document.execCommand('formatBlock', false, 'h2');
         else if (cmd === 'h3') document.execCommand('formatBlock', false, 'h3');
@@ -366,9 +310,6 @@
           const url = window.prompt('链接地址（留空取消）', 'https://');
           if (url) document.execCommand('createLink', false, url);
         }
-        else if (cmd === 'hl') { curKind = 'hl'; wrapAnno('hl', annoColor); }
-        else if (cmd === 'uline') { curKind = 'uline'; wrapAnno('uline', annoColor); }
-        else if (cmd === 'wave') { curKind = 'wave'; wrapAnno('wave', annoColor); }
         else if (cmd === 'clear') document.execCommand('removeFormat');
         syncMd();
       });
