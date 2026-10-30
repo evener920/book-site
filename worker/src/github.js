@@ -58,12 +58,16 @@ async function readArticles(env, limit) {
     .filter(function (t) { return t.type === 'blob' && t.path.indexOf('content/') === 0 && /\.md$/.test(t.path); })
     .slice(0, limit || 200);
 
+  // 并行拉取每个文件内容（避免逐个串行 N+1 请求导致列表/发布很慢）
+  const fetched = await Promise.all(files.map(function (f) {
+    return gh(env, base + '/contents/' + encodeURI(f.path) + '?ref=' + env.GITHUB_BRANCH)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+  }));
   const items = [];
-  for (let i = 0; i < files.length; i++) {
+  fetched.forEach(function (d, i) {
+    if (!d) return;
     const f = files[i];
-    const r = await gh(env, base + '/contents/' + encodeURI(f.path) + '?ref=' + env.GITHUB_BRANCH);
-    if (!r.ok) continue;
-    const d = await r.json();
     let text = '';
     try { text = base64ToUtf8(d.content || ''); } catch (e) { text = ''; }
     const meta = parseFrontmatter(text);
@@ -75,7 +79,7 @@ async function readArticles(env, limit) {
       volume: meta.volume || '',
       body: stripFrontmatter(text)
     });
-  }
+  });
   return items;
 }
 

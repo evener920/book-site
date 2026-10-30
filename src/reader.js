@@ -45,24 +45,22 @@
   }
 
   // 检测线上是否已有新版本：比较 version.json.version 与当前 BOOK_VERSION。
-  // 书会持续生长（后台发文 → 重新部署），读者若一直开着旧标签页，会读到缓存旧版，
-  // 因此周期性检查，发现版本落后就在顶部弹出提示条，点击即刷新。
+  // 书会持续生长（后台发文 → 重新部署），读者若一直开着旧标签页，会读到缓存旧版。
+  // 发现版本落后（新书已部署）即自动刷新，呈现全部已发布内容——当前阅读页已存 localStorage，
+  // 刷新后回到原处，不会丢失进度；version.json 与 manifest.json 由同一构建原子部署，不会出现半新半旧。
   function checkUpdate() {
     function probe() {
       fetch(v('./version.json') + '&t=' + Date.now(), { cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (d) {
           if (d && d.version && d.version !== window.BOOK_VERSION) {
-            var bar = document.getElementById('update-bar');
-            if (bar) bar.classList.remove('hidden');
-            var rl = document.getElementById('update-reload');
-            if (rl) rl.onclick = function (e) { e.preventDefault(); location.reload(true); };
+            location.reload(true); // 自动刷新，新书自动呈现
           }
         })
         .catch(function () { /* 离线或网络抖动时忽略 */ });
     }
     probe();
-    setInterval(probe, 90 * 1000); // 每 90 秒复查一次
+    setInterval(probe, 30 * 1000); // 每 30 秒复查，新书发布后尽快自动呈现（不再只弹横幅等手动点）
   }
 
   // 不再对书页做 CSS 缩放：缩放会抵消浏览器自身的放大，且两次缩放叠加会让文字发虚。
