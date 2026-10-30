@@ -69,6 +69,13 @@ body{
 .page span[style*="wavy"],.page span.wave{text-decoration-line:underline;text-decoration-style:wavy;text-decoration-skip-ink:none;}
 .page hr{border:none;border-top:1px solid var(--rule);margin:20px 0;}
 .page code{font-family:"SFMono-Regular",Consolas,monospace;background:rgba(0,0,0,.05);padding:1px 4px;border-radius:3px;font-size:14px;}
+/* 表格：宣纸底、细线、表头略深——与书页同色系，不做“网页表格”的硬边框 */
+.page table{width:100%;border-collapse:collapse;margin:6px 0 18px;font-size:15px;line-height:1.75;background:rgba(205,191,160,.10);}
+.page th,.page td{border:1px solid var(--rule);padding:8px 11px;text-align:left;vertical-align:top;}
+.page th{background:rgba(205,191,160,.28);color:var(--ink);font-weight:600;letter-spacing:.5px;white-space:nowrap;}
+.page strong{font-weight:700;color:#2b332c;}
+.page pre{background:rgba(205,191,160,.14);border:1px solid var(--rule);border-radius:4px;padding:14px 16px;overflow:auto;font-size:13.5px;line-height:1.85;}
+.page pre code{background:none;padding:0;font-size:inherit;}
 .page ul,.page ol{font-size:17px;line-height:2.0;padding-left:2.4em;margin:0 0 14px;}
 /* 目录：左侧常驻栏（窄屏变抽屉） */
 .toc{
