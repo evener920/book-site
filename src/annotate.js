@@ -383,6 +383,9 @@
   // 这样支持相邻/重叠批注，且不会产生重复包裹（旧逻辑逐条包 + walker 排斥 .ann 导致坐标系错位）。
   function applyForPage() {
     if (!cur) return;
+    // 重绘会 splitText / normalize 文本节点，若不先清掉选区，浏览器会把选区边界
+    // 吸附到合并后的节点边缘 —— 表现为“残留选区从上一条划线一直拉到这里”。
+    clearSelection();
     clearAnnMarks();   // 清掉当前页已有的 .ann，从干净文本重新渲染
     const list = anns.filter(function (a) { return a.pageGlobal === cur.globalPage; });
     if (!list.length) return;
@@ -414,15 +417,26 @@
     segs.forEach(function (seg) { wrapSpan(seg.start, seg.end, seg.ann); });
   }
 
+  function clearSelection() {
+    try {
+      const s = window.getSelection();
+      if (s && s.rangeCount) s.removeAllRanges();
+    } catch (e) { /* 忽略 */ }
+    activeRange = null;
+  }
+
   function clearAnnMarks() {
     const host = $(HOST_ID);
     if (!host) return;
-    const found = host.querySelectorAll('.ann');
-    Array.prototype.slice.call(found).forEach(function (m) {
+    const parents = [];
+    Array.prototype.slice.call(host.querySelectorAll('.ann')).forEach(function (m) {
       const p = m.parentNode;
       while (m.firstChild) p.insertBefore(m.firstChild, m);
       p.removeChild(m);
-      p.normalize();
+      if (parents.indexOf(p) === -1) parents.push(p);   // 同一段落只 normalize 一次
+    });
+    parents.forEach(function (p) {
+      try { p.normalize(); } catch (e) { /* 忽略 */ }
     });
   }
 
@@ -444,7 +458,13 @@
         annBar.classList.add('hidden');
         return;
       }
-      activeRange = sel.getRangeAt(0).cloneRange();
+      const r0 = sel.getRangeAt(0);
+      // 选区必须完整落在正文容器内，否则偏移计算会跨出容器（把页外文字也算进来）
+      if (!host.contains(r0.startContainer) || !host.contains(r0.endContainer)) {
+        annBar.classList.add('hidden');
+        return;
+      }
+      activeRange = r0.cloneRange();
       showBar(activeRange.getBoundingClientRect());
     }, 10);
   });
@@ -532,6 +552,7 @@
   async function deleteActive() {
     if (activeId == null) return;
     const host = $(HOST_ID);
+    clearSelection();   // 删除同样会 unwrap+normalize，先清选区避免选区被撑开
     anns = anns.filter(function (a) { return String(a.id) !== String(activeId); });
     saveLocal();
     Array.prototype.slice.call(host.querySelectorAll('.ann[data-ann-id="' + activeId + '"]')).forEach(function (m) {
