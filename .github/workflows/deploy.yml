@@ -34,7 +34,8 @@ jobs:
         run: node build.js
         env:
           # 前端要连的 Worker API 地址；改这里就能换后端
-          BOOK_API: ${{ secrets.BOOK_API || 'https://book-site-api.evener920.workers.dev' }}
+          # 不要用 *.workers.dev 默认子域（部分网络会被连接重置）；改用自有域名 api.201573.xyz。
+          BOOK_API: 'https://api.201573.xyz'
 
       - name: 精确分页（浏览器测量 → pages.json）
         run: node tools/paginate.js

@@ -19,7 +19,9 @@ set -e
 PROJECT="${1:-book-site}"
 BRANCH="${2:-main}"   # 必须是项目的生产分支名（main），写 production 会被当成预览分支
 # 前端要连的 Worker 地址（不传则用仓库默认）
-export BOOK_API="${BOOK_API:-https://book-site-api.evener920.workers.dev}"
+# 注意：不要再用 *.workers.dev 默认子域——在部分网络下会被连接重置，导致阅读端拉不到文章、正文空白只剩卡片框。
+# 已改为绑定到自有域名 api.201573.xyz（在 Cloudflare 控制台给 book-site-api Worker 添加自定义域即可）。
+export BOOK_API="${BOOK_API:-https://api.201573.xyz}"
 
 cd "$(dirname "$0")"
 
