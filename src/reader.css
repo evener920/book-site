@@ -211,6 +211,9 @@ body{
   @page{ size: A4; margin: 0; }
   body{background:#fff;}
   #app{display:none!important;}
+  /* 批注层 UI（登录面板/批注工具条/备注弹层/首次提示）挂在 body 下，#app 隐藏不到它们，
+     必须单独排除，否则会印进 PDF（此前"选中正文文字即可划线…"提示条就是被印进去的） */
+  .ann-firsthint,.ann-toolbar,.ann-pop,.ann-panel{display:none!important;}
   #print-book{display:block;}
   /* 打印页与屏幕书页同一套 700 版式；固定整页高（≈A4 可用高），保证：
      ① 短篇在 PDF 里页码也贴 A4 底部（与 Word 页脚一致），而非浮在正文下方；
