@@ -96,13 +96,15 @@
       // 作者用 # 显式写的标题：
       //   · 单 # 起头 → 本库里几乎都是“未加围栏代码块里的命令行注释”，一律转义成普通段落，
       //     避免变成巨号标题（正文小节请用 ## / ###，自动大纲的 N. 会被转成 #/## 也是真标题）。
-      //   · ## / ### 起头 → 真实标题，直接保留；但若内容“像正文句子 / 编号 shell 注释”也转义。
+      //   · 两个及以上 # → 作者显式标题，一律保留为标题。
+      //     2026-10-30 修正：此前“像正文句子（含逗号/句号）也转义”的启发式误伤了合法标题
+      //     （如《第一章》逐句疏解的 “### 1. 道可道，非常道。”，标题本身就带句读），
+      //     导致 “###” 三个字符原样印进正文/PDF。全库检索确认无内容依赖该转义行为。
       const hm = line.match(/^(\s{0,3})(#{1,6})\s+(\S.*)$/);
       if (hm) {
         const hashes = hm[2];
         const text = hm[3];
-        const looksLikeSentence = /[，,]/.test(text) || /[。！？]$/.test(text) || /^\d+[)、]/.test(text);
-        if (hashes.length === 1 || looksLikeSentence) {
+        if (hashes.length === 1) {
           out.push(hm[1] + '\\' + hashes + ' ' + text);
         } else {
           out.push(line);
@@ -286,8 +288,11 @@
       h = 0;
     }
 
-    // 当前页“内容区”真实总高（含段落 margin 与折叠），减去上下 padding 128
+    // 当前页"内容区"真实总高（含段落 margin 与折叠），减去上下 padding 128
     function pageH() { return Math.max(0, curEl.scrollHeight - 128); }
+
+    // 标题块不应孤悬页底（下面跟着的正文/表格被推到下一页时，标题要一起带走）
+    function isHeading(el) { return /^H[1-4]$/.test(el.tagName); }
 
     // 把节点放入当前页：先接入量高度，超预算则另起一页（保证每页真实高度 ≤ PAGE_H）
     function pushToPage(node, b) {
@@ -296,7 +301,17 @@
       const newH = pageH();
       if (cur.items.length > 0 && newH > PAGE_H) {
         curEl.removeChild(node);
+        // 孤儿标题回退：页尾连续的标题块随本块一起搬到新页
+        const heads = [];
+        while (cur.items.length && isHeading(cur.items[cur.items.length - 1])) {
+          const hd = cur.items.pop();
+          curEl.removeChild(hd);
+          heads.unshift(hd);
+        }
+        // 页被搬空（全是标题）时回收空页，避免页码空洞
+        if (cur.items.length === 0) { measure.removeChild(curEl); pages.pop(); }
         newPage();
+        heads.forEach(function (hd) { curEl.appendChild(hd); cur.items.push(hd); });
         curEl.appendChild(node);
       }
       if (!cur.volume) cur.volume = b.volume;
