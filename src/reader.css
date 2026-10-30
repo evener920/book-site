@@ -181,6 +181,22 @@ body{
 }
 .ann-colors button{flex:1;min-width:60px;font-size:13px;}
 
+/* 首次使用提示：底部居中的浅色胶囊，点「知道了」后不再出现 */
+.ann-firsthint{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:55;
+  display:flex;align-items:center;gap:10px;max-width:92vw;
+  background:rgba(253,251,245,.96);border:1px solid var(--rule);border-radius:999px;
+  box-shadow:0 6px 22px rgba(60,45,20,.18);padding:9px 18px;
+  font-size:14px;color:var(--ink-soft);letter-spacing:.5px;white-space:nowrap;
+}
+.ann-firsthint button{
+  font-family:var(--serif);font-size:13px;background:transparent;
+  border:1px solid var(--rule);color:var(--cinnabar);
+  padding:3px 12px;border-radius:999px;cursor:pointer;flex:none;
+}
+.ann-firsthint button:hover{background:var(--paper-edge);}
+@media (max-width:600px){ .ann-firsthint{font-size:12px;padding:7px 12px;} }
+
 @media print{
   /* 关键：强制 A4 + 零边距，否则浏览器按默认纸张（常为 Letter）或默认页边距排版，
      书页内容约 990px 高在 Letter(≈1056px)−默认边距(≈76px)=≈980px 下会溢出，

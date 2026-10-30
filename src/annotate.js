@@ -609,6 +609,24 @@
     if (!$(HOST_ID)) { setTimeout(init, 200); return; }
     loadLocal();
     buildUI();
+    firstHint();
+  }
+
+  // 首次进入的轻提示：让评审/新读者一眼知道核心玩法（选中即批注）。
+  // 挂在 body 上而非 #page 内 —— 进了 #page 会改变文本节点序列，破坏批注偏移坐标系。
+  function firstHint() {
+    let seen = false;
+    try { seen = !!localStorage.getItem('book_ann_hint_v1'); } catch (e) {}
+    if (seen) return;
+    const tip = mk('div', 'ann-firsthint');
+    tip.innerHTML = '<span>✦ 选中正文文字，即可划线 · 波浪 · 高亮；点击标记可写备注</span>';
+    const ok = mk('button', '', '知道了');
+    ok.onclick = function () {
+      tip.classList.add('hidden');
+      try { localStorage.setItem('book_ann_hint_v1', '1'); } catch (e) {}
+    };
+    tip.appendChild(ok);
+    document.body.appendChild(tip);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
