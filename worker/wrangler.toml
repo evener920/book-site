@@ -14,8 +14,8 @@ GITHUB_OWNER = "evener920"
 GITHUB_REPO = "book-site"
 GITHUB_BRANCH = "main"
 
-# 允许调用 API 的站点来源（Pages 域名 + 本地预览）
-ALLOWED_ORIGINS = "http://localhost:8123,http://127.0.0.1:8123,https://pages.201573.xyz,https://book-site-aev.pages.dev"
+# 允许调用 API 的站点来源（Pages 域名 + 1024 参赛 WorkBuddy 站点 + 本地预览）
+ALLOWED_ORIGINS = "http://localhost:8123,http://127.0.0.1:8123,https://pages.201573.xyz,https://book-site-aev.pages.dev,https://daodejing-book.app.workbuddy.host"
 
 # 只有这些用户名可以发布文章（批注账号谁都能注册，发文章不行）
 ADMIN_USERNAMES = "evener920"
