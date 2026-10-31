@@ -29,6 +29,33 @@ body{
   padding:6px 12px;border-radius:4px;cursor:pointer;
 }
 #toolbar button:hover{background:var(--paper-edge);}
+/* 顶部全文搜索框 */
+#search-box{position:relative;display:flex;align-items:center;}
+#search-input{
+  font-family:var(--serif);font-size:14px;color:var(--ink);
+  background:var(--paper);border:1px solid var(--rule);border-radius:4px;
+  padding:6px 10px;width:168px;outline:none;transition:border-color .12s;
+}
+#search-input:focus{border-color:var(--cinnabar);}
+#search-input::-webkit-search-cancel-button{cursor:pointer;}
+#search-results{
+  position:absolute;top:calc(100% + 6px);right:0;z-index:40;
+  width:380px;max-width:min(380px,86vw);
+  background:var(--paper);border:1px solid var(--rule);border-radius:8px;
+  box-shadow:0 8px 28px rgba(70,58,36,.18);
+  max-height:62vh;overflow:auto;padding:6px;
+}
+#search-results.hidden{display:none;}
+.search-item{padding:9px 11px;border-radius:6px;cursor:pointer;border-bottom:1px solid var(--rule);line-height:1.5;}
+.search-item:last-child{border-bottom:none;}
+.search-item:hover{background:rgba(156,74,54,.06);}
+.search-item .si-title{color:var(--cinnabar);font-weight:600;font-size:14px;letter-spacing:.5px;}
+.search-item .si-meta{color:var(--ink-soft);font-size:12px;margin:2px 0 4px;}
+.search-item .si-snippet{color:var(--ink);font-size:13px;line-height:1.6;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.search-empty{color:var(--ink-soft);font-size:13px;padding:14px;text-align:center;}
+/* 关键词高亮（搜索结果片段与跳页后正文） */
+.search-item .si-snippet mark,.page mark{background:#fbe6b0;color:#7a2e1c;border-radius:2px;padding:0 1px;}
 /* 新版本提示条：线上重新部署后，仍开着旧标签页的读者会在顶部看到提示，点击刷新即可 */
 .update-bar{
   flex:0 0 auto;text-align:center;padding:8px 14px;font-size:14px;

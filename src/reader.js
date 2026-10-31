@@ -11,6 +11,11 @@
   let numbering = 'global'; // 'global' 全站连续 | 'per-volume' 卷内
   const articleStart = {}; // title -> 起始页 index
 
+  // 全文搜索：每页纯文本 + 每页所属文章标题，load 后构建一次
+  let pageTexts = [];
+  let pageArticleTitle = [];
+  let searchHits = []; // 当前关键词命中的页码索引
+
   const params = new URLSearchParams(location.search);
   const FORCE_MEASURE = params.get('measure') === '1'; // 构建测量模式
 
@@ -199,6 +204,7 @@
     if (window.__markFirstPageDone) window.__markFirstPageDone(); // 首页已渲染，允许淡入（防空矩形闪现）
     applyZoom(); // 首屏按记忆恢复书页缩放（目录/工具栏不变）
     bindEvents();
+    buildSearchIndex();
     checkUpdate(); // 检测线上是否已有新版本，提示读者刷新（避免读到缓存旧版）
 
     // 就绪钩子（自动化 / 调试）
@@ -561,6 +567,143 @@
       else if (e.key === 'Escape' && isNarrow()) closeToc();
     });
     window.addEventListener('resize', function () { initToc(); fitPage(); });
+
+    // 顶部全文搜索
+    const sInput = document.getElementById('search-input');
+    if (sInput) {
+      let tmr;
+      sInput.addEventListener('input', function () {
+        clearTimeout(tmr);
+        const val = sInput.value.trim();
+        tmr = setTimeout(function () { runSearch(val); }, 150);
+      });
+      sInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { sInput.value = ''; runSearch(''); sInput.blur(); }
+        else if (e.key === 'Enter') {
+          // Enter 跳到第一个命中页并高亮
+          if (searchHits.length) { showPage(searchHits[0]); highlightInPage(sInput.value.trim()); closeSearch(); }
+        }
+      });
+    }
+    document.addEventListener('click', function (e) {
+      const box = document.getElementById('search-results');
+      const sb = document.getElementById('search-box');
+      if (box && sb && !sb.contains(e.target)) box.classList.add('hidden');
+    });
+  }
+
+  function closeSearch() {
+    const box = document.getElementById('search-results');
+    if (box) box.classList.add('hidden');
+  }
+
+  // 构建每页纯文本索引与「页→文章」映射（load 后调用一次）
+  function buildSearchIndex() {
+    pageTexts = [];
+    pageArticleTitle = [];
+    let curTitle = '';
+    pages.forEach(function (p) {
+      const first = p.items[0];
+      if (first && first.getAttribute && first.getAttribute('data-title')) {
+        curTitle = first.getAttribute('data-title');
+      }
+      pageArticleTitle.push(curTitle);
+      let t = '';
+      p.items.forEach(function (el) { t += (el.textContent || '') + '\n'; });
+      pageTexts.push(t);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+  function escapeReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function countHits(text, q) {
+    if (!q) return 0;
+    const m = text.match(new RegExp(escapeReg(q), 'gi'));
+    return m ? m.length : 0;
+  }
+
+  // 生成带高亮的摘要片段：取首个命中前后各约 24 字
+  function makeSnippet(text, q) {
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if (idx < 0) return escapeHtml(text.slice(0, 80));
+    const start = Math.max(0, idx - 24);
+    const end = Math.min(text.length, idx + q.length + 24);
+    const pre = (start > 0 ? '…' : '') + text.slice(start, idx);
+    const hit = text.slice(idx, idx + q.length);
+    const post = text.slice(idx + q.length, end) + (end < text.length ? '…' : '');
+    return escapeHtml(pre) + '<mark>' + escapeHtml(hit) + '</mark>' + escapeHtml(post);
+  }
+
+  function runSearch(q) {
+    const box = document.getElementById('search-results');
+    if (!box) return;
+    if (!q) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+    const hits = [];
+    for (let i = 0; i < pageTexts.length; i++) {
+      if (pageTexts[i].toLowerCase().indexOf(q.toLowerCase()) >= 0) hits.push(i);
+    }
+    searchHits = hits;
+    if (!hits.length) {
+      box.innerHTML = '<div class="search-empty">未找到「' + escapeHtml(q) + '」</div>';
+      box.classList.remove('hidden');
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    hits.slice(0, 50).forEach(function (i) {
+      const p = pages[i];
+      const title = pageArticleTitle[i] || '（未命名）';
+      const item = document.createElement('div');
+      item.className = 'search-item';
+      item.innerHTML =
+        '<div class="si-title">' + escapeHtml(title) + '</div>' +
+        '<div class="si-meta">' + pageLabel(p) + ' · 命中 ' + countHits(pageTexts[i], q) + ' 处</div>' +
+        '<div class="si-snippet">' + makeSnippet(pageTexts[i], q) + '</div>';
+      item.onclick = function () {
+        showPage(i);
+        highlightInPage(q);
+        closeSearch();
+        const s = document.getElementById('search-input'); if (s) s.blur();
+      };
+      frag.appendChild(item);
+    });
+    box.innerHTML = '';
+    box.appendChild(frag);
+    box.classList.remove('hidden');
+  }
+
+  // 在当前书页文本节点中高亮所有命中关键词（showPage 已重渲染，旧高亮自动清除）
+  function highlightInPage(q) {
+    if (!q) return;
+    const ql = q.toLowerCase();
+    const walker = document.createTreeWalker(pageEl, NodeFilter.SHOW_TEXT, null);
+    const targets = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.parentNode && node.parentNode.tagName === 'MARK') continue;
+      if (!node.textContent.toLowerCase().includes(ql)) continue;
+      targets.push(node);
+    }
+    targets.forEach(function (n) {
+      const text = n.textContent;
+      const frag = document.createDocumentFragment();
+      const lower = text.toLowerCase();
+      let last = 0, idx = lower.indexOf(ql);
+      while (idx >= 0) {
+        if (idx > last) frag.appendChild(document.createTextNode(text.slice(last, idx)));
+        const mk = document.createElement('mark');
+        mk.textContent = text.slice(idx, idx + q.length);
+        frag.appendChild(mk);
+        last = idx + q.length;
+        idx = lower.indexOf(ql, last);
+      }
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      n.parentNode.replaceChild(frag, n);
+    });
   }
 
   // 构建整本打印 DOM（供浏览器打印与 Playwright 导出 PDF 共用）
