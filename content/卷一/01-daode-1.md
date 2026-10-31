@@ -1,5 +1,5 @@
 ---
-title: 道德经·第一章
+title: 道德经·第1章
 order: 1
 date: 2026-10-28
 volume: 卷一
