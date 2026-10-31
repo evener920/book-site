@@ -19,9 +19,10 @@ body{
 #app{height:100vh;display:flex;flex-direction:row;}
 #main{flex:1;min-width:0;display:flex;flex-direction:column;}
 #toolbar{
-  display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:wrap;
+  display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:nowrap;
   padding:10px 14px;background:rgba(253,251,245,.94);
   border-bottom:1px solid var(--rule);font-size:15px;flex:0 0 auto;
+  white-space:nowrap;overflow-x:auto;
 }
 #toolbar button{
   font-family:var(--serif);font-size:14px;background:transparent;
@@ -30,11 +31,11 @@ body{
 }
 #toolbar button:hover{background:var(--paper-edge);}
 /* 顶部全文搜索框 */
-#search-box{position:relative;display:flex;align-items:center;}
+#search-box{position:relative;display:flex;align-items:center;flex:0 1 168px;min-width:0;}
 #search-input{
   font-family:var(--serif);font-size:14px;color:var(--ink);
   background:var(--paper);border:1px solid var(--rule);border-radius:4px;
-  padding:6px 10px;width:168px;outline:none;transition:border-color .12s;
+  padding:6px 10px;width:100%;min-width:0;outline:none;transition:border-color .12s;
 }
 #search-input:focus{border-color:var(--cinnabar);}
 #search-input::-webkit-search-cancel-button{cursor:pointer;}

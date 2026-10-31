@@ -62,10 +62,6 @@
       b1.id = 'btn-auth';
       b1.onclick = openAuth;
       bar.appendChild(b1);
-      const b2 = mk('button', '', '导出批注');
-      b2.id = 'btn-export';
-      b2.onclick = exportMd;
-      bar.appendChild(b2);
     }
     updateAuthBtn();
 
@@ -575,26 +571,6 @@
       if (!annPop.classList.contains('hidden')) annPop.classList.add('hidden');
     }
   });
-
-  // ---------------- 导出 ----------------
-  function exportMd() {
-    if (!anns.length) { alert('还没有批注可导出'); return; }
-    const lines = ['# 我的批注', ''];
-    anns.forEach(function (a) {
-      lines.push('> ' + String(a.quote).replace(/\n/g, ' '));
-      lines.push('>');
-      lines.push('> ——《' + (a.articleTitle || '未命名') + '》' + (a.volume ? ' · ' + a.volume : '') + ' · 第 ' + a.pageGlobal + ' 页');
-      if (a.note) { lines.push(''); lines.push('**批注**：' + a.note); }
-      lines.push('');
-      lines.push('---');
-      lines.push('');
-    });
-    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = '批注-' + new Date().toISOString().slice(0, 10) + '.md';
-    a.click();
-  }
 
   // ---------------- 页切换 ----------------
   document.addEventListener('book:page', function (e) {
