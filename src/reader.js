@@ -196,6 +196,7 @@
     buildToc(manifest);
     current = parseInt(localStorage.getItem('book-page') || '0', 10) || 0;
     showPage(current);
+    if (window.__markFirstPageDone) window.__markFirstPageDone(); // 首页已渲染，允许淡入（防空矩形闪现）
     applyZoom(); // 首屏按记忆恢复书页缩放（目录/工具栏不变）
     bindEvents();
     checkUpdate(); // 检测线上是否已有新版本，提示读者刷新（避免读到缓存旧版）
@@ -588,8 +589,16 @@
   load();
 
   // 字体/样式就绪前先隐藏内容，避免刷新瞬间中文未就绪被渲染成方块（tofu）一闪而过；
-  // 待 document.fonts.ready（系统中文就绪）后再淡入显示
-  function markReady() { var a = document.getElementById('app'); if (a) a.classList.add('ready'); }
+  // 待 document.fonts.ready（系统中文就绪）后再淡入显示。
+  // 2026-10-31 修正：此前只等字体，fonts.ready 常先于 manifest/pages.json 的 fetch 完成，
+  // 导致“空的书页矩形（宣纸底+投影）”先闪现一下、内容才填充进来。
+  // 现在改为双条件：字体就绪 **且** 首页内容已渲染，二者齐备才淡入。
+  var firstPageDone = false;
+  function markReady() {
+    if (!firstPageDone) return; // 首页未渲染前绝不显示，杜绝空矩形闪现
+    var a = document.getElementById('app'); if (a) a.classList.add('ready');
+  }
+  window.__markFirstPageDone = function () { firstPageDone = true; markReady(); };
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(markReady);
-  setTimeout(markReady, 1500); // 兜底：字体 API 异常时也确保内容可显示
+  setTimeout(markReady, 1500); // 兜底：字体 API 异常时也确保内容可显示（仍受 firstPageDone 门控）
 })();

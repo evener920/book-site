@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="道德经·网页书">
-  <rect width="512" height="512" rx="102" fill="#f7f2e5"/>
-  <rect x="44" y="44" width="424" height="424" rx="46" fill="none" stroke="#a3412d" stroke-width="16"/>
-  <text x="256" y="256" text-anchor="middle" dominant-baseline="central"
-        font-family="Songti SC,STSong,Noto Serif SC,SimSun,serif" font-weight="700"
-        font-size="287" fill="#a3412d">道</text>
+  <rect width="512" height="512" rx="110" fill="#f7f2e5"/>
+  
+  <path d="M94 166 Q171 115 256 166 T418 166" fill="none" stroke="#a3412d" stroke-width="47" stroke-linecap="round"/>
+  <path d="M94 269 Q171 218 256 269 T418 269" fill="none" stroke="#a3412d" stroke-width="47" stroke-linecap="round"/>
+  <path d="M94 371 Q171 320 256 371 T418 371" fill="none" stroke="#a3412d" stroke-width="47" stroke-linecap="round"/>
+
 </svg>

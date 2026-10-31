@@ -52,6 +52,8 @@ body{
      （“文字靠近页脚”）。打印/PDF 仍走 .page-print 的固定整页，短篇在 PDF 留出底部空白是标准页式。 */
 }
 .page section{display:flow-root;}
+/* 内容未渲染时（加载瞬间）空书页不显示底色与投影，杜绝“空矩形”闪现 */
+.page:empty{background:none;box-shadow:none;}
 /* 页脚（页码）：贴页面最底部，分隔线贯通整页宽（与 Word 页脚一致，不再过窄） */
 .page-number{position:absolute;bottom:18px;left:0;right:0;text-align:center;color:var(--cinnabar);font-size:13px;letter-spacing:3px;padding-top:10px;border-top:1px solid var(--rule);}
 /* 自动大纲：一级最大，逐级递减，与正文明显区分；标题均不首行缩进（首行缩进只用于正文段落） */
