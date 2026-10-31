@@ -673,6 +673,15 @@
     });
     box.innerHTML = '';
     box.appendChild(frag);
+    // 脱离 #toolbar 的 overflow 裁剪：fixed 定位到搜索框正下方
+    const sInput = document.getElementById('search-input');
+    if (sInput) {
+      const r = sInput.getBoundingClientRect();
+      box.style.position = 'fixed';
+      box.style.top = (r.bottom + 6) + 'px';
+      box.style.left = Math.max(8, r.right - 380) + 'px';
+      box.style.width = '380px';
+    }
     box.classList.remove('hidden');
   }
 

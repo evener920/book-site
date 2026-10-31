@@ -40,7 +40,7 @@ body{
 #search-input:focus{border-color:var(--cinnabar);}
 #search-input::-webkit-search-cancel-button{cursor:pointer;}
 #search-results{
-  position:absolute;top:calc(100% + 6px);right:0;z-index:40;
+  position:fixed;z-index:9999;
   width:380px;max-width:min(380px,86vw);
   background:var(--paper);border:1px solid var(--rule);border-radius:8px;
   box-shadow:0 8px 28px rgba(70,58,36,.18);
